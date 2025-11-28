@@ -5,6 +5,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../app/widgets/app_nav_bar.dart';
+
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
   @override
@@ -82,7 +84,10 @@ class _ProfilePageState extends State<ProfilePage> {
       _snack('Immagine profilo aggiornata.');
     } on FirebaseException catch (e) {
       debugPrint('[PROFILE][FIREBASE-ERROR] code=${e.code} message=${e.message}');
-      _snack('Errore Firebase: ${e.message ?? e.code}');
+      final hint = (e.code == 'permission-denied' || e.code == 'unauthorized')
+          ? 'Autorizzazione negata: verifica che le regole Firebase permettano a ${user.uid} di scrivere in "users/${user.uid}/profile".'
+          : (e.message ?? e.code);
+      _snack('Errore Firebase: $hint');
     } catch (e) {
       debugPrint('[PROFILE][ERROR] $e');
       _snack('Errore: $e');
@@ -119,6 +124,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Text('Accedi per gestire il profilo.'),
               ),
             ),
+            bottomNavigationBar: const AppNavBar(currentIndex: 4),
           );
         }
 
@@ -184,6 +190,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ],
               ),
+              bottomNavigationBar: const AppNavBar(currentIndex: 4),
             );
           },
         );
