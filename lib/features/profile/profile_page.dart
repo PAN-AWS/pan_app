@@ -97,7 +97,7 @@ class _ProfilePageState extends State<ProfilePage> {
     } on FirebaseException catch (e) {
       debugPrint('[PROFILE][FIREBASE-ERROR] code=${e.code} message=${e.message}');
       final hint = (e.code == 'permission-denied' || e.code == 'unauthorized')
-          ? 'Autorizzazione negata: verifica che le regole Firebase Storage permettano a ${user.uid} di scrivere in "public_profiles/${user.uid}/*" e che l’utente sia autenticato.'
+          ? 'Autorizzazione negata: verifica che l’utente sia autenticato e che le regole Firebase Storage consentano a ${user.uid} di scrivere in "public_profiles/${user.uid}/*" (profilo pubblico).'
           : (e.message ?? e.code);
       _snack('Errore Firebase: $hint');
     } catch (e) {
