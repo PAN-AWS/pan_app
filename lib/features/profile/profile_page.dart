@@ -54,11 +54,8 @@ class _ProfilePageState extends State<ProfilePage> {
       // immagini profilo manteniamo la versione pubblica così da essere
       // leggibile dal Marketplace e coerente con le regole di scrittura che
       // accettano solo il proprietario.
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('public_profiles')
-          .child(user.uid)
-          .child('avatar.jpg');
+      final storagePath = 'public_profiles/${user.uid}/avatar.jpg';
+      final ref = FirebaseStorage.instance.ref(storagePath);
       final metadata = SettableMetadata(contentType: _inferContentType(picked.name));
       debugPrint('[PROFILE] upload to ${ref.fullPath} contentType=${metadata.contentType} size=${bytes.lengthInBytes}');
 
