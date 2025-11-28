@@ -5,6 +5,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../app/widgets/app_nav_bar.dart';
+
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
   @override
@@ -46,7 +48,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
       // 2) Bytes + metadata
       final Uint8List bytes = await picked.readAsBytes();
-      final String storagePath = 'users/${user.uid}/profile/avatar.jpg';
+
+      // Le regole Firebase condivise per Storage/Firestore prevedono cartelle
+      // per-utente sia private (users) sia pubbliche (public_profiles). Per le
+      // immagini profilo manteniamo la versione pubblica così da essere
+      // leggibile dal Marketplace e coerente con le regole di scrittura che
+      // accettano solo il proprietario.
+      final String storagePath = 'public_profiles/${user.uid}/avatar.jpg';
       final metadata = SettableMetadata(contentType: _inferContentType(picked.name));
       debugPrint('[PROFILE] upload to $storagePath contentType=${metadata.contentType} size=${bytes.lengthInBytes}');
 
@@ -69,11 +77,17 @@ class _ProfilePageState extends State<ProfilePage> {
 
       // 5) Aggiorna Auth + Firestore
       await user.updatePhotoURL(url);
-      await _db.collection('users').doc(user.uid).set({
-        'photoURL': url,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-      debugPrint('[PROFILE] auth+firestore updated');
+      await Future.wait([
+        _db.collection('users').doc(user.uid).set({
+          'photoURL': url,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true)),
+        _db.collection('public_profiles').doc(user.uid).set({
+          'photoURL': url,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true)),
+      ]);
+      debugPrint('[PROFILE] auth+firestore (private+public) updated');
 
       // 6) Refresh UI
       await user.reload();
@@ -82,7 +96,10 @@ class _ProfilePageState extends State<ProfilePage> {
       _snack('Immagine profilo aggiornata.');
     } on FirebaseException catch (e) {
       debugPrint('[PROFILE][FIREBASE-ERROR] code=${e.code} message=${e.message}');
-      _snack('Errore Firebase: ${e.message ?? e.code}');
+      final hint = (e.code == 'permission-denied' || e.code == 'unauthorized')
+          ? 'Autorizzazione negata: verifica che le regole Firebase permettano a ${user.uid} di scrivere in "public_profiles/${user.uid}/*" e che l’utente sia autenticato.'
+          : (e.message ?? e.code);
+      _snack('Errore Firebase: $hint');
     } catch (e) {
       debugPrint('[PROFILE][ERROR] $e');
       _snack('Errore: $e');
@@ -119,6 +136,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Text('Accedi per gestire il profilo.'),
               ),
             ),
+            bottomNavigationBar: const AppNavBar(currentIndex: 4),
           );
         }
 
@@ -184,6 +202,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ],
               ),
+              bottomNavigationBar: const AppNavBar(currentIndex: 4),
             );
           },
         );

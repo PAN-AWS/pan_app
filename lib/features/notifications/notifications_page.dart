@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../app/widgets/app_nav_bar.dart';
+
 /// Modalità di notifica disponibili.
 /// Valori salvati su Firestore in: users/{uid}.notifications.mode
 enum NotificationMode {
@@ -80,6 +82,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     if (me == null) {
       return const Scaffold(
         body: Center(child: Text('Accedi per gestire le notifiche.')),
+        bottomNavigationBar: AppNavBar(currentIndex: 3),
       );
     }
 
@@ -92,6 +95,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
           return Scaffold(
             appBar: AppBar(title: const Text('Notifiche')),
             body: Center(child: Text('Errore: ${snap.error}')),
+            bottomNavigationBar: const AppNavBar(currentIndex: 3),
           );
         }
         if (!snap.hasData) {
@@ -99,6 +103,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
           return Scaffold(
             appBar: AppBar(title: const Text('Notifiche')),
             body: const Center(child: CircularProgressIndicator()),
+            bottomNavigationBar: const AppNavBar(currentIndex: 3),
           );
         }
 
@@ -167,6 +172,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               ),
             ],
           ),
+          bottomNavigationBar: const AppNavBar(currentIndex: 3),
         );
       },
     );
