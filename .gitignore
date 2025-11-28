@@ -1,0 +1,75 @@
+# =========================
+# GENERALE / SISTEMA
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# IDE / EDITOR
+# =========================
+.idea/
+.vscode/
+*.iml
+
+# =========================
+# FLUTTER / DART
+# =========================
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.melos_tool
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# =========================
+# ANDROID
+# =========================
+android/.gradle/
+android/local.properties
+
+# Cartelle di build Android (da NON versionare)
+android/build/
+android/app/build/
+
+# Log, report temporanei
+android/app/*.log
+
+# =========================
+# iOS
+# (anche se non li usi ora, meglio prepararli)
+# =========================
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/ServiceDefinitions.json
+ios/Runner/GeneratedPluginRegistrant.*
+
+# =========================
+# macOS
+# =========================
+macos/Pods/
+macos/.symlinks/
+macos/Flutter/ephemeral/
+macos/Flutter/flutter_export_environment.sh
+
+# =========================
+# WINDOWS
+# =========================
+windows/flutter/ephemeral/
+
+# =========================
+# LINUX
+# =========================
+linux/flutter/ephemeral/
+
+# =========================
+# WEB
+# =========================
+web/.dart_tool/
+
+android/.kotlin/

@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "1032026251158",
+    "project_id": "pan-nativa-progetto",
+    "storage_bucket": "pan-nativa-progetto.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1032026251158:android:8d69a1f50be20802f7c7b7",
+        "android_client_info": {
+          "package_name": "com.example.pan_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1032026251158-1lq077blqdhi3ep8cc9vroafun0g1prr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.pan_app",
+            "certificate_hash": "8c7f11db7941c1788ef91781b8cd45d298a36030"
+          }
+        },
+        {
+          "client_id": "1032026251158-44ngk23oo1judgk690fbh6dii53hu6ud.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCvqGIQv6mmyKawgUuCCFo0BjNfWnnAB3M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1032026251158-44ngk23oo1judgk690fbh6dii53hu6ud.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
