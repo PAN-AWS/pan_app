@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../marketplace/public_profile_page.dart';
+import '../../app/widgets/app_nav_bar.dart';
 
 class MarketplacePage extends StatefulWidget {
   const MarketplacePage({super.key});
@@ -234,6 +235,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
           ),
         ],
       ),
+      bottomNavigationBar: const AppNavBar(currentIndex: 2),
     );
   }
 

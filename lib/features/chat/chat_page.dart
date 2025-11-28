@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'chat_room_page.dart';
 import 'group_chat_page.dart';
 import '../marketplace/public_profile_page.dart';
+import '../../app/widgets/app_nav_bar.dart';
 
 String chatIdFor(String a, String b) {
   final x = [a, b]..sort();
@@ -159,6 +160,7 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
             child: const Icon(Icons.add),
           )
               : null,
+          bottomNavigationBar: const AppNavBar(currentIndex: 1),
         );
       },
     );
