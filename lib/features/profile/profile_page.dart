@@ -54,12 +54,15 @@ class _ProfilePageState extends State<ProfilePage> {
       // immagini profilo manteniamo la versione pubblica così da essere
       // leggibile dal Marketplace e coerente con le regole di scrittura che
       // accettano solo il proprietario.
-      final String storagePath = 'public_profiles/${user.uid}/avatar.jpg';
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('public_profiles')
+          .child(user.uid)
+          .child('avatar.jpg');
       final metadata = SettableMetadata(contentType: _inferContentType(picked.name));
-      debugPrint('[PROFILE] upload to $storagePath contentType=${metadata.contentType} size=${bytes.lengthInBytes}');
+      debugPrint('[PROFILE] upload to ${ref.fullPath} contentType=${metadata.contentType} size=${bytes.lengthInBytes}');
 
       // 3) Upload
-      final ref = FirebaseStorage.instance.ref(storagePath);
       final task = ref.putData(bytes, metadata);
 
       // opzionale: progress
@@ -97,7 +100,7 @@ class _ProfilePageState extends State<ProfilePage> {
     } on FirebaseException catch (e) {
       debugPrint('[PROFILE][FIREBASE-ERROR] code=${e.code} message=${e.message}');
       final hint = (e.code == 'permission-denied' || e.code == 'unauthorized')
-          ? 'Autorizzazione negata: verifica che le regole Firebase permettano a ${user.uid} di scrivere in "public_profiles/${user.uid}/*" e che l’utente sia autenticato.'
+          ? 'Autorizzazione negata: verifica che le regole Firebase Storage permettano a ${user.uid} di scrivere in "public_profiles/${user.uid}/*" e che l’utente sia autenticato.'
           : (e.message ?? e.code);
       _snack('Errore Firebase: $hint');
     } catch (e) {
