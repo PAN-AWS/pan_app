@@ -48,12 +48,18 @@ class _ProfilePageState extends State<ProfilePage> {
 
       // 2) Bytes + metadata
       final Uint8List bytes = await picked.readAsBytes();
-      final String storagePath = 'users/${user.uid}/profile/avatar.jpg';
+
+      // Le regole Firebase condivise per Storage/Firestore prevedono cartelle
+      // per-utente sia private (users) sia pubbliche (public_profiles). Per le
+      // immagini profilo manteniamo la versione pubblica così da essere
+      // leggibile dal Marketplace e coerente con le regole di scrittura che
+      // accettano solo il proprietario.
+      final storagePath = 'public_profiles/${user.uid}/avatar.jpg';
+      final ref = FirebaseStorage.instance.ref(storagePath);
       final metadata = SettableMetadata(contentType: _inferContentType(picked.name));
-      debugPrint('[PROFILE] upload to $storagePath contentType=${metadata.contentType} size=${bytes.lengthInBytes}');
+      debugPrint('[PROFILE] upload to ${ref.fullPath} contentType=${metadata.contentType} size=${bytes.lengthInBytes}');
 
       // 3) Upload
-      final ref = FirebaseStorage.instance.ref(storagePath);
       final task = ref.putData(bytes, metadata);
 
       // opzionale: progress
@@ -71,11 +77,17 @@ class _ProfilePageState extends State<ProfilePage> {
 
       // 5) Aggiorna Auth + Firestore
       await user.updatePhotoURL(url);
-      await _db.collection('users').doc(user.uid).set({
-        'photoURL': url,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-      debugPrint('[PROFILE] auth+firestore updated');
+      await Future.wait([
+        _db.collection('users').doc(user.uid).set({
+          'photoURL': url,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true)),
+        _db.collection('public_profiles').doc(user.uid).set({
+          'photoURL': url,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true)),
+      ]);
+      debugPrint('[PROFILE] auth+firestore (private+public) updated');
 
       // 6) Refresh UI
       await user.reload();
