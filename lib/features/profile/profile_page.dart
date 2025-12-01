@@ -96,12 +96,9 @@ class _ProfilePageState extends State<ProfilePage> {
       _snack('Immagine profilo aggiornata.');
     } on FirebaseException catch (e) {
       debugPrint('[PROFILE][FIREBASE-ERROR] code=${e.code} message=${e.message}');
-      final hint =
-          (e.code == 'permission-denied' || e.code == 'unauthorized')
-              ? "Autorizzazione negata: l’utente deve essere autenticato e le regole Firebase Storage devono consentire a ${user.uid} di scrivere in 'public_profiles/${user.uid}/*' (profilo pubblico)."
-              : (e.code == 'retry-limit-exceeded'
-                  ? 'Upload non riuscito: controlla la connessione di rete, riprova e verifica che lo Storage consenta l’accesso a public_profiles/${user.uid}.'
-                  : (e.message ?? e.code));
+      final hint = (e.code == 'permission-denied' || e.code == 'unauthorized')
+          ? 'Autorizzazione negata: verifica che le regole Firebase permettano a ${user.uid} di scrivere in "users/${user.uid}/profile".'
+          : (e.message ?? e.code);
       _snack('Errore Firebase: $hint');
     } catch (e) {
       debugPrint('[PROFILE][ERROR] $e');
