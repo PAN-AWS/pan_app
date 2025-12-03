@@ -23,6 +23,37 @@ class _ProfilePageState extends State<ProfilePage> {
   final _picker = ImagePicker();
 
   bool _busy = false;
+  String? _avatarUrl;
+
+  /// URL locale (con cache bust) dell’avatar appena caricato.
+  String? _avatarUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = _auth.currentUser;
+    _avatarUrl = user?.photoURL;
+  }
+
+  /// URL locale (con cache bust) dell’avatar appena caricato.
+  String? _avatarUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = _auth.currentUser;
+    _avatarUrl = user?.photoURL;
+  }
+
+  /// URL locale (con cache bust) dell’avatar appena caricato.
+  String? _avatarUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = _auth.currentUser;
+    _avatarUrl = user?.photoURL;
+  }
 
   /// URL locale (con cache bust) dell’avatar appena caricato.
   String? _avatarUrl;
@@ -92,8 +123,7 @@ class _ProfilePageState extends State<ProfilePage> {
       const String targetBucket = 'pan-nativa-progetto.firebasestorage.app';
 
       // Istanziamo FirebaseStorage puntando esplicitamente a quel bucket
-      final FirebaseStorage storage =
-          FirebaseStorage.instanceFor(bucket: targetBucket);
+      final FirebaseStorage storage = FirebaseStorage.instanceFor(bucket: targetBucket);
 
       // ref sul percorso public_profiles/<uid>/avatar.jpg
       final ref = storage
@@ -103,17 +133,15 @@ class _ProfilePageState extends State<ProfilePage> {
           .child('avatar.jpg');
 
       // metadata (content-type)
-      final metadata =
-          SettableMetadata(contentType: _inferContentType(picked.name));
+      final metadata = SettableMetadata(
+        contentType: _inferContentType(picked.name),
+      );
 
       // log di debug utili
       final configuredBucket = Firebase.app().options.storageBucket;
       debugPrint('[PROFILE] storage bucket configured=$configuredBucket');
       debugPrint('[AVATAR] storage bucket=${storage.bucket}');
-      debugPrint(
-        '[PROFILE] upload to ${ref.fullPath} '
-        'contentType=${metadata.contentType} size=${bytes.lengthInBytes}',
-      );
+      debugPrint('[PROFILE] upload to ${ref.fullPath} contentType=${metadata.contentType} size=${bytes.lengthInBytes}');
 
       SyncStatusController.instance.add(
         title: 'Upload immagine',
@@ -174,24 +202,18 @@ class _ProfilePageState extends State<ProfilePage> {
         category: 'storage',
       );
 
-      // 5) Aggiorna Auth + Firestore (public profile + users)
+      // 5) Aggiorna Auth + Firestore (public profile consigliato)
       await user.updatePhotoURL(url);
 
       await Future.wait([
-        _db.collection('public_profiles').doc(user.uid).set(
-          {
-            'avatarUrl': url,
-            'updatedAt': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        ),
-        _db.collection('users').doc(user.uid).set(
-          {
-            'photoURL': url,
-            'updatedAt': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        ),
+        _db.collection('public_profiles').doc(user.uid).set({
+          'avatarUrl': url,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true)),
+        _db.collection('users').doc(user.uid).set({
+          'photoURL': url,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true)),
       ]);
 
       debugPrint('[PROFILE] auth+firestore (private+public) updated');
@@ -267,11 +289,9 @@ class _ProfilePageState extends State<ProfilePage> {
         return StreamBuilder<DocumentSnapshot>(
           stream: docRef.snapshots(),
           builder: (context, sDoc) {
-            final data =
-                (sDoc.data?.data() as Map<String, dynamic>?) ?? {};
+            final data = (sDoc.data?.data() as Map<String, dynamic>?) ?? {};
             final String firestoreAvatar =
-                (data['avatarUrl'] is String &&
-                        (data['avatarUrl'] as String).trim().isNotEmpty)
+                (data['avatarUrl'] is String && (data['avatarUrl'] as String).trim().isNotEmpty)
                     ? (data['avatarUrl'] as String).trim()
                     : '';
             final String displayAvatar = _avatarUrl ??
@@ -364,4 +384,3 @@ String _inferContentType(String fileName) {
   if (lower.endsWith('.gif')) return 'image/gif';
   return 'application/octet-stream';
 }
-
