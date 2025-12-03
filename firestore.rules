@@ -5,16 +5,8 @@ service cloud.firestore {
     function isSelf(userId) { return isSignedIn() && request.auth.uid == userId; }
     function chatMembers(chatId) { return get(/databases/$(database)/documents/chats/$(chatId)).data.members; }
     function groupMembers(groupId) { return get(/databases/$(database)/documents/groups/$(groupId)).data.members; }
-    function isChatMember(chatId) {
-      // Prefer resource.data (available during read/list) to avoid permission errors
-      // when listing chats; fallback to get() for writes.
-      return isSignedIn() && ((resource.data.members is list && resource.data.members.hasAny([request.auth.uid]))
-        || chatMembers(chatId).hasAny([request.auth.uid]));
-    }
-    function isGroupMember(groupId) {
-      return isSignedIn() && ((resource.data.members is list && resource.data.members.hasAny([request.auth.uid]))
-        || groupMembers(groupId).hasAny([request.auth.uid]));
-    }
+    function isChatMember(chatId) { return isSignedIn() && chatMembers(chatId).hasAny([request.auth.uid]); }
+    function isGroupMember(groupId) { return isSignedIn() && groupMembers(groupId).hasAny([request.auth.uid]); }
     function addingSelfToGroup(groupId) {
       return isSignedIn()
         && request.resource.data.diff(resource.data).changedKeys().hasOnly(['members'])
