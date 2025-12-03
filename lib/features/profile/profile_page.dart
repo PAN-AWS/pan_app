@@ -25,7 +25,6 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _busy = false;
 
   /// URL locale (con cache bust) dell’avatar appena caricato.
-  // Mantenere un solo campo evita i conflitti di dichiarazione.
   String? _avatarUrl;
 
   @override
