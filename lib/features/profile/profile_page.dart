@@ -23,38 +23,6 @@ class _ProfilePageState extends State<ProfilePage> {
   final _picker = ImagePicker();
 
   bool _busy = false;
-  String? _avatarUrl;
-
-  /// URL locale (con cache bust) dell’avatar appena caricato.
-  String? _avatarUrl;
-
-  @override
-  void initState() {
-    super.initState();
-    final user = _auth.currentUser;
-    _avatarUrl = user?.photoURL;
-  }
-
-  /// URL locale (con cache bust) dell’avatar appena caricato.
-  String? _avatarUrl;
-
-  @override
-  void initState() {
-    super.initState();
-    final user = _auth.currentUser;
-    _avatarUrl = user?.photoURL;
-  }
-
-  /// URL locale (con cache bust) dell’avatar appena caricato.
-  String? _avatarUrl;
-
-  @override
-  void initState() {
-    super.initState();
-    final user = _auth.currentUser;
-    _avatarUrl = user?.photoURL;
-  }
-
   /// URL locale (con cache bust) dell’avatar appena caricato.
   String? _avatarUrl;
 
