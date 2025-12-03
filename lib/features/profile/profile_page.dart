@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -11,6 +12,7 @@ import '../../utils/sync_status.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
@@ -21,6 +23,16 @@ class _ProfilePageState extends State<ProfilePage> {
   final _picker = ImagePicker();
 
   bool _busy = false;
+
+  /// URL locale (con cache bust) dell’avatar appena caricato.
+  String? _avatarUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = _auth.currentUser;
+    _avatarUrl = user?.photoURL;
+  }
 
   Future<void> _pickAndUpload() async {
     final user = _auth.currentUser;
@@ -46,10 +58,10 @@ class _ProfilePageState extends State<ProfilePage> {
       );
 
       // 1) Scegli immagine
-      final XFile? picked = await _picker.pickImage(
+      final picked = await _picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 1024,
-        maxHeight: 1024,
+        maxWidth: 1200,
+        maxHeight: 1200,
         imageQuality: 88,
       );
 
@@ -64,6 +76,7 @@ class _ProfilePageState extends State<ProfilePage> {
         );
         return;
       }
+
       debugPrint('[PROFILE] picked: name=${picked.name}, bytes?');
       SyncStatusController.instance.add(
         title: 'Upload immagine',
@@ -75,20 +88,33 @@ class _ProfilePageState extends State<ProfilePage> {
       // 2) Bytes + metadata
       final Uint8List bytes = await picked.readAsBytes();
 
-      // Le regole Firebase condivise per Storage/Firestore prevedono cartelle
-      // per-utente sia private (users) sia pubbliche (public_profiles). Per le
-      // immagini profilo manteniamo la versione pubblica così da essere
-      // leggibile dal Marketplace e coerente con le regole di scrittura che
-      // accettano solo il proprietario.
-      final configuredBucket = Firebase.app().options.storageBucket;
-      final storage = configuredBucket != null
-          ? FirebaseStorage.instanceFor(bucket: configuredBucket)
-          : FirebaseStorage.instance;
-      final ref = storage.ref().child('public_profiles').child(user.uid).child('avatar.jpg');
-      final metadata = SettableMetadata(contentType: _inferContentType(picked.name));
+      // Bucket corretto preso dalla console Storage
+      const String targetBucket = 'pan-nativa-progetto.firebasestorage.app';
 
-      debugPrint('[PROFILE] storage bucket configured=$configuredBucket ref.bucket=${ref.bucket}');
-      debugPrint('[PROFILE] upload to ${ref.fullPath} contentType=${metadata.contentType} size=${bytes.lengthInBytes}');
+      // Istanziamo FirebaseStorage puntando esplicitamente a quel bucket
+      final FirebaseStorage storage =
+          FirebaseStorage.instanceFor(bucket: targetBucket);
+
+      // ref sul percorso public_profiles/<uid>/avatar.jpg
+      final ref = storage
+          .ref()
+          .child('public_profiles')
+          .child(user.uid)
+          .child('avatar.jpg');
+
+      // metadata (content-type)
+      final metadata =
+          SettableMetadata(contentType: _inferContentType(picked.name));
+
+      // log di debug utili
+      final configuredBucket = Firebase.app().options.storageBucket;
+      debugPrint('[PROFILE] storage bucket configured=$configuredBucket');
+      debugPrint('[AVATAR] storage bucket=${storage.bucket}');
+      debugPrint(
+        '[PROFILE] upload to ${ref.fullPath} '
+        'contentType=${metadata.contentType} size=${bytes.lengthInBytes}',
+      );
+
       SyncStatusController.instance.add(
         title: 'Upload immagine',
         message: 'Invio a ${ref.fullPath}',
@@ -100,14 +126,18 @@ class _ProfilePageState extends State<ProfilePage> {
       try {
         debugPrint('Upload avatar: inizio');
         debugPrint('Upload avatar: bucket=${ref.bucket} path=${ref.fullPath}');
+
         final task = ref.putData(bytes, metadata);
 
-        // opzionale: progress
         task.snapshotEvents.listen(
           (s) {
             final total = (s.totalBytes == 0 ? 1 : s.totalBytes);
-            final pct = (s.bytesTransferred / total * 100).toStringAsFixed(0);
-            debugPrint('[PROFILE] upload state=${s.state} $pct% (${s.bytesTransferred}/$total)');
+            final pct =
+                (s.bytesTransferred / total * 100).toStringAsFixed(0);
+            debugPrint(
+              '[PROFILE] upload state=${s.state} $pct% '
+              '(${s.bytesTransferred}/$total)',
+            );
           },
           onError: (Object e, StackTrace st) {
             debugPrint('[PROFILE] upload error: $e');
@@ -116,6 +146,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
         await task.whenComplete(() => null);
         debugPrint('Upload avatar: COMPLETATO');
+
         SyncStatusController.instance.add(
           title: 'Upload immagine',
           message: 'Upload completato',
@@ -133,7 +164,7 @@ class _ProfilePageState extends State<ProfilePage> {
         rethrow;
       }
 
-      // 4) URL
+      // 4) URL di download
       final url = await ref.getDownloadURL();
       debugPrint('[PROFILE] got URL: $url');
       SyncStatusController.instance.add(
@@ -143,18 +174,26 @@ class _ProfilePageState extends State<ProfilePage> {
         category: 'storage',
       );
 
-      // 5) Aggiorna Auth + Firestore
+      // 5) Aggiorna Auth + Firestore (public profile consigliato)
       await user.updatePhotoURL(url);
+
       await Future.wait([
-        _db.collection('users').doc(user.uid).set({
-          'photoURL': url,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true)),
-        _db.collection('public_profiles').doc(user.uid).set({
-          'photoURL': url,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true)),
+        _db.collection('public_profiles').doc(user.uid).set(
+          {
+            'avatarUrl': url,
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        ),
+        _db.collection('users').doc(user.uid).set(
+          {
+            'photoURL': url,
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        ),
       ]);
+
       debugPrint('[PROFILE] auth+firestore (private+public) updated');
       SyncStatusController.instance.add(
         title: 'Upload immagine',
@@ -163,16 +202,22 @@ class _ProfilePageState extends State<ProfilePage> {
         category: 'storage',
       );
 
-      // 6) Refresh UI
+      // 6) Refresh UI e cache-busting
       await user.reload();
       if (!mounted) return;
-      setState(() {});
+      setState(() {
+        _avatarUrl =
+            '$url?ts=${DateTime.now().millisecondsSinceEpoch}';
+      });
       _snack('Immagine profilo aggiornata.');
     } on FirebaseException catch (e) {
-      debugPrint('[PROFILE][FIREBASE-ERROR] code=${e.code} message=${e.message}');
-      final hint = (e.code == 'permission-denied' || e.code == 'unauthorized')
-          ? 'Autorizzazione negata: verifica che le regole Firebase permettano a ${user.uid} '
-              'di scrivere in public_profiles/${user.uid}.'
+      debugPrint(
+        '[PROFILE][FIREBASE-ERROR] code=${e.code} message=${e.message}',
+      );
+      final hint = (e.code == 'permission-denied' ||
+              e.code == 'unauthorized')
+          ? 'Autorizzazione negata: verifica che le regole Firebase permettano a ${_auth.currentUser?.uid} '
+              'di scrivere in public_profiles/${_auth.currentUser?.uid}.'
           : (e.message ?? e.code);
       _snack('Errore Firebase: $hint');
       SyncStatusController.instance.add(
@@ -195,17 +240,10 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  String _inferContentType(String name) {
-    final n = name.toLowerCase();
-    if (n.endsWith('.png')) return 'image/png';
-    if (n.endsWith('.webp')) return 'image/webp';
-    if (n.endsWith('.heic')) return 'image/heic';
-    return 'image/jpeg';
-  }
-
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -227,14 +265,26 @@ class _ProfilePageState extends State<ProfilePage> {
           );
         }
 
-        final docRef = _db.collection('users').doc(user.uid);
+        final docRef =
+            _db.collection('public_profiles').doc(user.uid);
         return StreamBuilder<DocumentSnapshot>(
           stream: docRef.snapshots(),
           builder: (context, sDoc) {
-            final data = (sDoc.data?.data() as Map<String, dynamic>?) ?? {};
-            final String photoUrl = (data['photoURL'] is String && (data['photoURL'] as String).trim().isNotEmpty)
-                ? (data['photoURL'] as String).trim()
-                : (user.photoURL ?? '');
+            final data =
+                (sDoc.data?.data() as Map<String, dynamic>?) ?? {};
+            final String firestoreAvatar =
+                (data['avatarUrl'] is String &&
+                        (data['avatarUrl'] as String)
+                            .trim()
+                            .isNotEmpty)
+                    ? (data['avatarUrl'] as String).trim()
+                    : '';
+            final String displayAvatar = _avatarUrl ??
+                (firestoreAvatar.isNotEmpty
+                    ? firestoreAvatar
+                    : (user.photoURL ?? ''));
+
+            final String photoUrl = displayAvatar;
 
             return Scaffold(
               appBar: AppBar(title: const Text('Profilo')),
@@ -242,15 +292,23 @@ class _ProfilePageState extends State<ProfilePage> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   const SyncStatusPanel(title: 'Controlli online'),
+                  const SizedBox(height: 24),
                   Center(
                     child: Stack(
                       children: [
                         CircleAvatar(
                           radius: 54,
-                          backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-                          backgroundImage: (photoUrl.isNotEmpty) ? NetworkImage(photoUrl) : null,
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .surfaceVariant,
+                          backgroundImage: (photoUrl.isNotEmpty)
+                              ? NetworkImage(photoUrl)
+                              : null,
                           child: (photoUrl.isEmpty)
-                              ? const Icon(Icons.person, size: 48)
+                              ? const Icon(
+                                  Icons.person,
+                                  size: 48,
+                                )
                               : null,
                         ),
                         Positioned(
@@ -261,10 +319,12 @@ class _ProfilePageState extends State<ProfilePage> {
                             onPressed: _busy ? null : _pickAndUpload,
                             child: _busy
                                 ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
                                 : const Icon(Icons.edit),
                           ),
                         ),
@@ -274,27 +334,38 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 16),
                   Center(
                     child: Text(
-                      user.email ?? 'Utente',
+                      user.email ?? '',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  ListTile(
-                    leading: const Icon(Icons.photo_camera_front_outlined),
-                    title: const Text('Modifica immagine profilo'),
-                    subtitle: const Text('Seleziona un’immagine dalla Galleria'),
-                    trailing: _busy
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                        : null,
-                    onTap: _busy ? null : _pickAndUpload,
+                  const SizedBox(height: 32),
+                  const Text(
+                    'Modifica immagine profilo',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
+                  const SizedBox(height: 4),
+                  const Text('Seleziona un’immagine dalla Galleria'),
                 ],
               ),
-              bottomNavigationBar: const AppNavBar(currentIndex: 4),
+              bottomNavigationBar:
+                  const AppNavBar(currentIndex: 4),
             );
           },
         );
       },
     );
   }
+}
+
+String _inferContentType(String fileName) {
+  final lower = fileName.toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+    return 'image/jpeg';
+  }
+  if (lower.endsWith('.gif')) return 'image/gif';
+  return 'application/octet-stream';
 }
