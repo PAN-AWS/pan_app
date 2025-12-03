@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -79,9 +80,11 @@ class _ProfilePageState extends State<ProfilePage> {
       // immagini profilo manteniamo la versione pubblica così da essere
       // leggibile dal Marketplace e coerente con le regole di scrittura che
       // accettano solo il proprietario.
-      final storagePath = 'public_profiles/${user.uid}/avatar.jpg';
-      final ref = FirebaseStorage.instance.ref(storagePath);
+      final storage = FirebaseStorage.instance;
+      final ref = storage.ref().child('public_profiles').child(user.uid).child('avatar.jpg');
       final metadata = SettableMetadata(contentType: _inferContentType(picked.name));
+      final configuredBucket = Firebase.app().options.storageBucket;
+      debugPrint('[PROFILE] storage bucket configured=$configuredBucket ref.bucket=${ref.bucket}');
       debugPrint('[PROFILE] upload to ${ref.fullPath} contentType=${metadata.contentType} size=${bytes.lengthInBytes}');
       SyncStatusController.instance.add(
         title: 'Upload immagine',
