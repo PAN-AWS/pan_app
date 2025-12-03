@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:pan_app/services/auth/google_auth.dart';
+import 'package:pan_app/utils/sync_status.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -27,11 +28,30 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
   Future<void> _signInWithGoogle() async {
     try {
       await googleSignIn();
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? 'sconosciuto';
+      SyncStatusController.instance.add(
+        title: 'Login Google',
+        message: 'Current user: $uid',
+        success: true,
+        category: 'auth',
+      );
       // Niente navigate: app.dart ascolta authStateChanges() e ricarica la UI.
     } on FirebaseAuthException catch (e) {
       _showError(e.message ?? 'Errore di autenticazione Google.');
+      SyncStatusController.instance.add(
+        title: 'Login Google',
+        message: e.message ?? e.code,
+        success: false,
+        category: 'auth',
+      );
     } catch (e) {
       _showError(e.toString());
+      SyncStatusController.instance.add(
+        title: 'Login Google',
+        message: e.toString(),
+        success: false,
+        category: 'auth',
+      );
     }
   }
 
@@ -57,11 +77,18 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tab,
+      body: Column(
         children: [
-          _EmailLogin(onError: _showError),
-          _EmailRegister(onError: _showError),
+          Expanded(
+            child: TabBarView(
+              controller: _tab,
+              children: [
+                _EmailLogin(onError: _showError),
+                _EmailRegister(onError: _showError),
+              ],
+            ),
+          ),
+          const SyncStatusPanel(title: 'Stato autenticazione'),
         ],
       ),
       bottomNavigationBar: SafeArea(
@@ -123,11 +150,30 @@ class _EmailLoginState extends State<_EmailLogin> {
         email: _email.text.trim(),
         password: _password.text.trim(),
       );
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? 'sconosciuto';
+      SyncStatusController.instance.add(
+        title: 'Login email',
+        message: 'Current user: $uid',
+        success: true,
+        category: 'auth',
+      );
       // app.dart ascolta authStateChanges().
     } on FirebaseAuthException catch (e) {
       widget.onError(_mapAuthError(e));
+      SyncStatusController.instance.add(
+        title: 'Login email',
+        message: e.message ?? e.code,
+        success: false,
+        category: 'auth',
+      );
     } catch (e) {
       widget.onError(e.toString());
+      SyncStatusController.instance.add(
+        title: 'Login email',
+        message: e.toString(),
+        success: false,
+        category: 'auth',
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -145,10 +191,28 @@ class _EmailLoginState extends State<_EmailLogin> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Email inviata. Controlla la casella di posta.')),
       );
+      SyncStatusController.instance.add(
+        title: 'Reset password',
+        message: 'Email reset inviata a $email',
+        success: true,
+        category: 'auth',
+      );
     } on FirebaseAuthException catch (e) {
       widget.onError(_mapAuthError(e));
+      SyncStatusController.instance.add(
+        title: 'Reset password',
+        message: e.message ?? e.code,
+        success: false,
+        category: 'auth',
+      );
     } catch (e) {
       widget.onError(e.toString());
+      SyncStatusController.instance.add(
+        title: 'Reset password',
+        message: e.toString(),
+        success: false,
+        category: 'auth',
+      );
     }
   }
 
@@ -266,12 +330,31 @@ class _EmailRegisterState extends State<_EmailRegister> {
         const SnackBar(content: Text('Registrazione completata. Controlla l’email per la verifica.')),
       );
 
+      SyncStatusController.instance.add(
+        title: 'Registrazione',
+        message: 'Account creato per $email',
+        success: true,
+        category: 'auth',
+      );
+
       // Ritorna al tab "Accedi"
       DefaultTabController.of(context)?.animateTo(0);
     } on FirebaseAuthException catch (e) {
       widget.onError(_mapAuthError(e));
+      SyncStatusController.instance.add(
+        title: 'Registrazione',
+        message: e.message ?? e.code,
+        success: false,
+        category: 'auth',
+      );
     } catch (e) {
       widget.onError(e.toString());
+      SyncStatusController.instance.add(
+        title: 'Registrazione',
+        message: e.toString(),
+        success: false,
+        category: 'auth',
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
