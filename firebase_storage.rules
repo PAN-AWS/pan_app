@@ -8,12 +8,16 @@ service firebase.storage {
     function isChatMember(chatId) {
       return isSignedIn() &&
         chatId is string &&
+        firestore.exists(/databases/$(database)/documents/chats/$(chatId)) &&
+        firestore.get(/databases/$(database)/documents/chats/$(chatId)).data.members is list &&
         firestore.get(/databases/$(database)/documents/chats/$(chatId)).data.members.hasAny([request.auth.uid]);
     }
 
     function isGroupMember(groupId) {
       return isSignedIn() &&
         groupId is string &&
+        firestore.exists(/databases/$(database)/documents/groups/$(groupId)) &&
+        firestore.get(/databases/$(database)/documents/groups/$(groupId)).data.members is list &&
         firestore.get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
     }
 
