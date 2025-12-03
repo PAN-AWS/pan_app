@@ -276,9 +276,10 @@ class _ProfilePageState extends State<ProfilePage> {
             final String firestoreAvatarWithCacheBust = firestoreAvatar.isNotEmpty
                 ? _withCacheBust(firestoreAvatar, updatedAt: updatedAt)
                 : '';
-            final String displayAvatar = firestoreAvatarWithCacheBust.isNotEmpty
-                ? firestoreAvatarWithCacheBust
-                : (_avatarUrl ?? (user.photoURL ?? ''));
+            final String displayAvatar = _avatarUrl ??
+                (firestoreAvatarWithCacheBust.isNotEmpty
+                    ? firestoreAvatarWithCacheBust
+                    : (user.photoURL ?? ''));
 
             final String photoUrl = displayAvatar;
 
