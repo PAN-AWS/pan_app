@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -11,6 +12,7 @@ import '../../utils/sync_status.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
@@ -22,6 +24,16 @@ class _ProfilePageState extends State<ProfilePage> {
 
   bool _busy = false;
   String? _avatarUrl;
+
+  /// URL locale (con cache bust) dell’avatar appena caricato.
+  String? _avatarUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = _auth.currentUser;
+    _avatarUrl = user?.photoURL;
+  }
 
   Future<void> _pickAndUpload() async {
     final user = _auth.currentUser;
@@ -47,10 +59,10 @@ class _ProfilePageState extends State<ProfilePage> {
       );
 
       // 1) Scegli immagine
-      final XFile? picked = await _picker.pickImage(
+      final picked = await _picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 1024,
-        maxHeight: 1024,
+        maxWidth: 1200,
+        maxHeight: 1200,
         imageQuality: 88,
       );
 
@@ -65,6 +77,7 @@ class _ProfilePageState extends State<ProfilePage> {
         );
         return;
       }
+
       debugPrint('[PROFILE] picked: name=${picked.name}, bytes?');
       SyncStatusController.instance.add(
         title: 'Upload immagine',
@@ -145,7 +158,7 @@ class _ProfilePageState extends State<ProfilePage> {
         rethrow;
       }
 
-      // 4) URL
+      // 4) URL di download
       final url = await ref.getDownloadURL();
       debugPrint('[PROFILE] got URL: $url');
       SyncStatusController.instance.add(
@@ -157,6 +170,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
       // 5) Aggiorna Auth + Firestore (public profile consigliato)
       await user.updatePhotoURL(url);
+
       await Future.wait([
         _db.collection('public_profiles').doc(user.uid).set({
           'avatarUrl': url,
@@ -167,6 +181,7 @@ class _ProfilePageState extends State<ProfilePage> {
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true)),
       ]);
+
       debugPrint('[PROFILE] auth+firestore (private+public) updated');
       SyncStatusController.instance.add(
         title: 'Upload immagine',
@@ -183,10 +198,12 @@ class _ProfilePageState extends State<ProfilePage> {
       });
       _snack('Immagine profilo aggiornata.');
     } on FirebaseException catch (e) {
-      debugPrint('[PROFILE][FIREBASE-ERROR] code=${e.code} message=${e.message}');
-      final hint = (e.code == 'permission-denied' || e.code == 'unauthorized')
-          ? 'Autorizzazione negata: verifica che le regole Firebase permettano a ${user.uid} '
-              'di scrivere in public_profiles/${user.uid}.'
+      debugPrint(
+          '[PROFILE][FIREBASE-ERROR] code=${e.code} message=${e.message}');
+      final hint = (e.code == 'permission-denied' ||
+              e.code == 'unauthorized')
+          ? 'Autorizzazione negata: verifica che le regole Firebase permettano a ${_auth.currentUser?.uid} '
+              'di scrivere in public_profiles/${_auth.currentUser?.uid}.'
           : (e.message ?? e.code);
       _snack('Errore Firebase: $hint');
       SyncStatusController.instance.add(
@@ -209,17 +226,10 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  String _inferContentType(String name) {
-    final n = name.toLowerCase();
-    if (n.endsWith('.png')) return 'image/png';
-    if (n.endsWith('.webp')) return 'image/webp';
-    if (n.endsWith('.heic')) return 'image/heic';
-    return 'image/jpeg';
-  }
-
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -263,15 +273,23 @@ class _ProfilePageState extends State<ProfilePage> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   const SyncStatusPanel(title: 'Controlli online'),
+                  const SizedBox(height: 24),
                   Center(
                     child: Stack(
                       children: [
                         CircleAvatar(
                           radius: 54,
-                          backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-                          backgroundImage: (photoUrl.isNotEmpty) ? NetworkImage(photoUrl) : null,
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .surfaceVariant,
+                          backgroundImage: (photoUrl.isNotEmpty)
+                              ? NetworkImage(photoUrl)
+                              : null,
                           child: (photoUrl.isEmpty)
-                              ? const Icon(Icons.person, size: 48)
+                              ? const Icon(
+                                  Icons.person,
+                                  size: 48,
+                                )
                               : null,
                         ),
                         Positioned(
@@ -282,10 +300,12 @@ class _ProfilePageState extends State<ProfilePage> {
                             onPressed: _busy ? null : _pickAndUpload,
                             child: _busy
                                 ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
                                 : const Icon(Icons.edit),
                           ),
                         ),
@@ -295,27 +315,38 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 16),
                   Center(
                     child: Text(
-                      user.email ?? 'Utente',
+                      user.email ?? '',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  ListTile(
-                    leading: const Icon(Icons.photo_camera_front_outlined),
-                    title: const Text('Modifica immagine profilo'),
-                    subtitle: const Text('Seleziona un’immagine dalla Galleria'),
-                    trailing: _busy
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                        : null,
-                    onTap: _busy ? null : _pickAndUpload,
+                  const SizedBox(height: 32),
+                  const Text(
+                    'Modifica immagine profilo',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
+                  const SizedBox(height: 4),
+                  const Text('Seleziona un’immagine dalla Galleria'),
                 ],
               ),
-              bottomNavigationBar: const AppNavBar(currentIndex: 4),
+              bottomNavigationBar:
+                  const AppNavBar(currentIndex: 4),
             );
           },
         );
       },
     );
   }
+}
+
+String _inferContentType(String fileName) {
+  final lower = fileName.toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+    return 'image/jpeg';
+  }
+  if (lower.endsWith('.gif')) return 'image/gif';
+  return 'application/octet-stream';
 }
