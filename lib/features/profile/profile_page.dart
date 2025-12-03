@@ -88,7 +88,7 @@ class _ProfilePageState extends State<ProfilePage> {
       debugPrint('[PROFILE] upload to ${ref.fullPath} contentType=${metadata.contentType} size=${bytes.lengthInBytes}');
       SyncStatusController.instance.add(
         title: 'Upload immagine',
-        message: 'Bucket ${ref.bucket} → ${ref.fullPath}',
+        message: 'Invio a ${ref.fullPath}',
         success: true,
         category: 'storage',
       );
@@ -105,24 +105,14 @@ class _ProfilePageState extends State<ProfilePage> {
           debugPrint('[PROFILE] upload state=${s.state} $pct%');
         });
 
-        await task;
-        debugPrint('Upload avatar: COMPLETATO');
-        SyncStatusController.instance.add(
-          title: 'Upload immagine',
-          message: 'Upload completato',
-          success: true,
-          category: 'storage',
-        );
-      } on FirebaseException catch (e) {
-        debugPrint('ERRORE UPLOAD AVATAR: ${e.code} - ${e.message}');
-          SyncStatusController.instance.add(
-            title: 'Upload immagine',
-            message: 'Errore upload: ${e.code} (bucket ${ref.bucket})',
-            success: false,
-            category: 'storage',
-          );
-          rethrow;
-        }
+      await task.whenComplete(() => null);
+      debugPrint('[PROFILE] upload complete');
+      SyncStatusController.instance.add(
+        title: 'Upload immagine',
+        message: 'Upload completato',
+        success: true,
+        category: 'storage',
+      );
 
       // 4) URL
       final url = await ref.getDownloadURL();
