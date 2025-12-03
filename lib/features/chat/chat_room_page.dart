@@ -65,6 +65,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   final FocusNode _textFocus = FocusNode();
   final _picker = ImagePicker();
   bool _sendingMedia = false;
+  double? _uploadProgress;
 
   Future<void> _markAsRead() async {
     final me = FirebaseAuth.instance.currentUser;
@@ -119,7 +120,10 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     if (me == null) return;
 
     try {
-      setState(() => _sendingMedia = true);
+      setState(() {
+        _sendingMedia = true;
+        _uploadProgress = 0;
+      });
       final XFile? picked = isVideo
           ? await _picker.pickVideo(source: ImageSource.gallery, maxDuration: const Duration(minutes: 2))
           : await _picker.pickImage(source: ImageSource.gallery, maxWidth: 1600, maxHeight: 1600, imageQuality: 85);
@@ -133,7 +137,15 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       final inferredType = _inferContentType(picked.name, isVideo: isVideo);
       final metadata = SettableMetadata(contentType: inferredType);
 
-      await ref.putData(bytes, metadata);
+      final task = ref.putData(bytes, metadata);
+      task.snapshotEvents.listen((snap) {
+        final pct = (snap.totalBytes == 0) ? 0.0 : snap.bytesTransferred / snap.totalBytes;
+        if (mounted) {
+          setState(() => _uploadProgress = pct);
+        }
+      });
+
+      await task.whenComplete(() => null);
       final url = await ref.getDownloadURL();
 
       await _send(
@@ -148,7 +160,12 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Errore caricamento: $e')));
       }
     } finally {
-      if (mounted) setState(() => _sendingMedia = false);
+      if (mounted) {
+        setState(() {
+          _sendingMedia = false;
+          _uploadProgress = null;
+        });
+      }
     }
   }
 
@@ -288,6 +305,15 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                   },
                 ),
               ),
+              if (_sendingMedia)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: LinearProgressIndicator(
+                    value: _uploadProgress != null
+                        ? (_uploadProgress!.clamp(0.0, 1.0)).toDouble()
+                        : null,
+                  ),
+                ),
               SafeArea(
                 top: false,
                 child: Padding(
