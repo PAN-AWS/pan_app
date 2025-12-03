@@ -1,11 +1,13 @@
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../app/widgets/app_nav_bar.dart';
+import '../../utils/sync_status.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -24,12 +26,24 @@ class _ProfilePageState extends State<ProfilePage> {
     final user = _auth.currentUser;
     if (user == null) {
       _snack('Devi essere autenticato.');
+      SyncStatusController.instance.add(
+        title: 'Check login',
+        message: 'Current user: nessuno',
+        success: false,
+        category: 'auth',
+      );
       return;
     }
 
     try {
       setState(() => _busy = true);
       debugPrint('[PROFILE] start pick');
+      SyncStatusController.instance.add(
+        title: 'Upload immagine',
+        message: 'Current user: ${user.uid}',
+        success: true,
+        category: 'storage',
+      );
 
       // 1) Scegli immagine
       final XFile? picked = await _picker.pickImage(
@@ -42,9 +56,21 @@ class _ProfilePageState extends State<ProfilePage> {
       if (picked == null) {
         debugPrint('[PROFILE] pick cancelled');
         _snack('Selezione annullata.');
+        SyncStatusController.instance.add(
+          title: 'Upload immagine',
+          message: 'Selezione annullata',
+          success: false,
+          category: 'storage',
+        );
         return;
       }
       debugPrint('[PROFILE] picked: name=${picked.name}, bytes?');
+      SyncStatusController.instance.add(
+        title: 'Upload immagine',
+        message: 'File scelto: ${picked.name}',
+        success: true,
+        category: 'storage',
+      );
 
       // 2) Bytes + metadata
       final Uint8List bytes = await picked.readAsBytes();
@@ -54,26 +80,59 @@ class _ProfilePageState extends State<ProfilePage> {
       // immagini profilo manteniamo la versione pubblica così da essere
       // leggibile dal Marketplace e coerente con le regole di scrittura che
       // accettano solo il proprietario.
-      final storagePath = 'public_profiles/${user.uid}/avatar.jpg';
-      final ref = FirebaseStorage.instance.ref(storagePath);
+      final storage = FirebaseStorage.instance;
+      final ref = storage.ref().child('public_profiles').child(user.uid).child('avatar.jpg');
       final metadata = SettableMetadata(contentType: _inferContentType(picked.name));
+      final configuredBucket = Firebase.app().options.storageBucket;
+      debugPrint('[PROFILE] storage bucket configured=$configuredBucket ref.bucket=${ref.bucket}');
       debugPrint('[PROFILE] upload to ${ref.fullPath} contentType=${metadata.contentType} size=${bytes.lengthInBytes}');
+      SyncStatusController.instance.add(
+        title: 'Upload immagine',
+        message: 'Bucket ${ref.bucket} → ${ref.fullPath}',
+        success: true,
+        category: 'storage',
+      );
 
       // 3) Upload
-      final task = ref.putData(bytes, metadata);
+      try {
+        debugPrint('Upload avatar: inizio');
+        debugPrint('Upload avatar: bucket=${ref.bucket} path=${ref.fullPath}');
+        final task = ref.putData(bytes, metadata);
 
-      // opzionale: progress
-      task.snapshotEvents.listen((s) {
-        final pct = (s.bytesTransferred / (s.totalBytes == 0 ? 1 : s.totalBytes) * 100).toStringAsFixed(0);
-        debugPrint('[PROFILE] upload state=${s.state} $pct%');
-      });
+        // opzionale: progress
+        task.snapshotEvents.listen((s) {
+          final pct = (s.bytesTransferred / (s.totalBytes == 0 ? 1 : s.totalBytes) * 100).toStringAsFixed(0);
+          debugPrint('[PROFILE] upload state=${s.state} $pct%');
+        });
 
-      await task.whenComplete(() => null);
-      debugPrint('[PROFILE] upload complete');
+        await task;
+        debugPrint('Upload avatar: COMPLETATO');
+        SyncStatusController.instance.add(
+          title: 'Upload immagine',
+          message: 'Upload completato',
+          success: true,
+          category: 'storage',
+        );
+      } on FirebaseException catch (e) {
+        debugPrint('ERRORE UPLOAD AVATAR: ${e.code} - ${e.message}');
+          SyncStatusController.instance.add(
+            title: 'Upload immagine',
+            message: 'Errore upload: ${e.code} (bucket ${ref.bucket})',
+            success: false,
+            category: 'storage',
+          );
+          rethrow;
+        }
 
       // 4) URL
       final url = await ref.getDownloadURL();
       debugPrint('[PROFILE] got URL: $url');
+      SyncStatusController.instance.add(
+        title: 'Upload immagine',
+        message: 'URL ottenuto',
+        success: true,
+        category: 'storage',
+      );
 
       // 5) Aggiorna Auth + Firestore
       await user.updatePhotoURL(url);
@@ -88,6 +147,12 @@ class _ProfilePageState extends State<ProfilePage> {
         }, SetOptions(merge: true)),
       ]);
       debugPrint('[PROFILE] auth+firestore (private+public) updated');
+      SyncStatusController.instance.add(
+        title: 'Upload immagine',
+        message: 'Profilo aggiornato online',
+        success: true,
+        category: 'storage',
+      );
 
       // 6) Refresh UI
       await user.reload();
@@ -97,12 +162,24 @@ class _ProfilePageState extends State<ProfilePage> {
     } on FirebaseException catch (e) {
       debugPrint('[PROFILE][FIREBASE-ERROR] code=${e.code} message=${e.message}');
       final hint = (e.code == 'permission-denied' || e.code == 'unauthorized')
-          ? 'Autorizzazione negata: verifica che le regole Firebase permettano a ${user.uid} di scrivere in "users/${user.uid}/profile".'
+          ? 'Autorizzazione negata: verifica che le regole Firebase permettano a ${user.uid} di scrivere in "public_profiles/${user.uid}".'
           : (e.message ?? e.code);
       _snack('Errore Firebase: $hint');
+      SyncStatusController.instance.add(
+        title: 'Upload immagine',
+        message: hint,
+        success: false,
+        category: 'storage',
+      );
     } catch (e) {
       debugPrint('[PROFILE][ERROR] $e');
       _snack('Errore: $e');
+      SyncStatusController.instance.add(
+        title: 'Upload immagine',
+        message: e.toString(),
+        success: false,
+        category: 'storage',
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -154,6 +231,7 @@ class _ProfilePageState extends State<ProfilePage> {
               body: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  const SyncStatusPanel(title: 'Controlli online'),
                   Center(
                     child: Stack(
                       children: [
