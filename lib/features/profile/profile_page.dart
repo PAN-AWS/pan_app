@@ -364,3 +364,4 @@ String _inferContentType(String fileName) {
   if (lower.endsWith('.gif')) return 'image/gif';
   return 'application/octet-stream';
 }
+
