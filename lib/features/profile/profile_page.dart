@@ -104,8 +104,6 @@ class _ProfilePageState extends State<ProfilePage> {
           final pct = (s.bytesTransferred / (s.totalBytes == 0 ? 1 : s.totalBytes) * 100).toStringAsFixed(0);
           debugPrint('[PROFILE] upload state=${s.state} $pct%');
         });
-
-<<<<<<< codex/add-user-authentication-checks-z8vedz
         await task;
         debugPrint('Upload avatar: COMPLETATO');
         SyncStatusController.instance.add(
@@ -124,16 +122,6 @@ class _ProfilePageState extends State<ProfilePage> {
         );
         rethrow;
       }
-=======
-      await task.whenComplete(() => null);
-      debugPrint('[PROFILE] upload complete');
-      SyncStatusController.instance.add(
-        title: 'Upload immagine',
-        message: 'Upload completato',
-        success: true,
-        category: 'storage',
-      );
->>>>>>> main
 
       // 4) URL
       final url = await ref.getDownloadURL();
