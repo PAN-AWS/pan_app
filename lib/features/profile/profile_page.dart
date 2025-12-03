@@ -161,7 +161,8 @@ class _ProfilePageState extends State<ProfilePage> {
     } on FirebaseException catch (e) {
       debugPrint('[PROFILE][FIREBASE-ERROR] code=${e.code} message=${e.message}');
       final hint = (e.code == 'permission-denied' || e.code == 'unauthorized')
-          ? 'Autorizzazione negata: verifica che le regole Firebase permettano a ${user.uid} di scrivere in "public_profiles/${user.uid}".'
+          ? 'Autorizzazione negata: verifica che le regole Firebase permettano a ${user.uid} '
+              'di scrivere in public_profiles/${user.uid}.'
           : (e.message ?? e.code);
       _snack('Errore Firebase: $hint');
       SyncStatusController.instance.add(
