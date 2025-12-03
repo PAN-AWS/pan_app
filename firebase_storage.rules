@@ -1,20 +1,53 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isChatMember(chatId) {
+      return isSignedIn() &&
+        chatId is string &&
+        firestore.get(/databases/$(database)/documents/chats/$(chatId)).data.members.hasAny([request.auth.uid]);
+    }
+
+    function isGroupMember(groupId) {
+      return isSignedIn() &&
+        groupId is string &&
+        firestore.get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
+    }
+
+    function isAllowedContentType() {
+      return request.resource.contentType.matches('image/.*') || request.resource.contentType.matches('video/.*');
+    }
+
     // Avatar / immagini profilo pubbliche
     match /public_profiles/{userId}/{allPaths=**} {
-      // Chiunque può leggere (profilo pubblico)
       allow read: if true;
-
-      // Può scrivere solo l'utente autenticato proprietario
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow write: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // Consentire al proprietario autenticato di leggere/scrivere i propri file profilo
+    // Profili privati
     match /users/{userId}/profile/{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
-    
+
+    // Media chat uno-a-uno
+    match /chat_media/{chatId}/{messageId}/{fileName} {
+      allow read: if isChatMember(chatId);
+      allow write: if isChatMember(chatId)
+        && isAllowedContentType()
+        && request.resource.size < 20 * 1024 * 1024; // 20 MB
+    }
+
+    // Media chat di gruppo
+    match /group_media/{groupId}/{messageId}/{fileName} {
+      allow read: if isGroupMember(groupId);
+      allow write: if isGroupMember(groupId)
+        && isAllowedContentType()
+        && request.resource.size < 20 * 1024 * 1024; // 20 MB
+    }
+
     // Blocca tutto il resto
     match /{allPaths=**} {
       allow read, write: if false;
