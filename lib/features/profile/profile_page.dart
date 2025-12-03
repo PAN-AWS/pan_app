@@ -88,7 +88,7 @@ class _ProfilePageState extends State<ProfilePage> {
       debugPrint('[PROFILE] upload to ${ref.fullPath} contentType=${metadata.contentType} size=${bytes.lengthInBytes}');
       SyncStatusController.instance.add(
         title: 'Upload immagine',
-        message: 'Bucket ${ref.bucket} → ${ref.fullPath}',
+        message: 'Invio a ${ref.fullPath}',
         success: true,
         category: 'storage',
       );
@@ -105,6 +105,7 @@ class _ProfilePageState extends State<ProfilePage> {
           debugPrint('[PROFILE] upload state=${s.state} $pct%');
         });
 
+<<<<<<< codex/add-user-authentication-checks-z8vedz
         await task;
         debugPrint('Upload avatar: COMPLETATO');
         SyncStatusController.instance.add(
@@ -123,6 +124,16 @@ class _ProfilePageState extends State<ProfilePage> {
         );
         rethrow;
       }
+=======
+      await task.whenComplete(() => null);
+      debugPrint('[PROFILE] upload complete');
+      SyncStatusController.instance.add(
+        title: 'Upload immagine',
+        message: 'Upload completato',
+        success: true,
+        category: 'storage',
+      );
+>>>>>>> main
 
       // 4) URL
       final url = await ref.getDownloadURL();
