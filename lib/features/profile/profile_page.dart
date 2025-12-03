@@ -105,6 +105,26 @@ class _ProfilePageState extends State<ProfilePage> {
           debugPrint('[PROFILE] upload state=${s.state} $pct%');
         });
 
+<<<<<<< codex/add-user-authentication-checks-z8vedz
+        await task;
+        debugPrint('Upload avatar: COMPLETATO');
+        SyncStatusController.instance.add(
+          title: 'Upload immagine',
+          message: 'Upload completato',
+          success: true,
+          category: 'storage',
+        );
+      } on FirebaseException catch (e) {
+        debugPrint('ERRORE UPLOAD AVATAR: ${e.code} - ${e.message}');
+        SyncStatusController.instance.add(
+          title: 'Upload immagine',
+          message: 'Errore upload: ${e.code} (bucket ${ref.bucket})',
+          success: false,
+          category: 'storage',
+        );
+        rethrow;
+      }
+=======
       await task.whenComplete(() => null);
       debugPrint('[PROFILE] upload complete');
       SyncStatusController.instance.add(
@@ -113,6 +133,7 @@ class _ProfilePageState extends State<ProfilePage> {
         success: true,
         category: 'storage',
       );
+>>>>>>> main
 
       // 4) URL
       final url = await ref.getDownloadURL();
