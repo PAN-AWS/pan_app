@@ -196,7 +196,7 @@ class _ProfilePageState extends State<ProfilePage> {
       await user.reload();
       if (!mounted) return;
       setState(() {
-        _avatarUrl = '$url?ts=${DateTime.now().millisecondsSinceEpoch}';
+        _avatarUrl = _withCacheBust(url);
       });
       _snack('Immagine profilo aggiornata.');
     } on FirebaseException catch (e) {
@@ -234,6 +234,16 @@ class _ProfilePageState extends State<ProfilePage> {
         .showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  String _withCacheBust(String url, {Timestamp? updatedAt}) {
+    if (url.isEmpty) return url;
+    final uri = Uri.parse(url);
+    final params = Map<String, String>.from(uri.queryParameters);
+    params['ts'] =
+        (updatedAt?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch)
+            .toString();
+    return uri.replace(queryParameters: params).toString();
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
@@ -258,13 +268,19 @@ class _ProfilePageState extends State<ProfilePage> {
           stream: docRef.snapshots(),
           builder: (context, sDoc) {
             final data = (sDoc.data?.data() as Map<String, dynamic>?) ?? {};
+            final Timestamp? updatedAt = data['updatedAt'] is Timestamp
+                ? (data['updatedAt'] as Timestamp)
+                : null;
             final String firestoreAvatar =
                 (data['avatarUrl'] is String && (data['avatarUrl'] as String).trim().isNotEmpty)
                     ? (data['avatarUrl'] as String).trim()
                     : '';
+            final String firestoreAvatarWithCacheBust = firestoreAvatar.isNotEmpty
+                ? _withCacheBust(firestoreAvatar, updatedAt: updatedAt)
+                : '';
             final String displayAvatar = _avatarUrl ??
-                (firestoreAvatar.isNotEmpty
-                    ? firestoreAvatar
+                (firestoreAvatarWithCacheBust.isNotEmpty
+                    ? firestoreAvatarWithCacheBust
                     : (user.photoURL ?? ''));
 
             final String photoUrl = displayAvatar;
