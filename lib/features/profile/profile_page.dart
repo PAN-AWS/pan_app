@@ -91,13 +91,16 @@ class _ProfilePageState extends State<ProfilePage> {
       );
 
       // 3) Upload
-      final task = ref.putData(bytes, metadata);
+      try {
+        debugPrint('Upload avatar: inizio');
+        debugPrint('Upload avatar: bucket=${ref.bucket} path=${ref.fullPath}');
+        final task = ref.putData(bytes, metadata);
 
-      // opzionale: progress
-      task.snapshotEvents.listen((s) {
-        final pct = (s.bytesTransferred / (s.totalBytes == 0 ? 1 : s.totalBytes) * 100).toStringAsFixed(0);
-        debugPrint('[PROFILE] upload state=${s.state} $pct%');
-      });
+        // opzionale: progress
+        task.snapshotEvents.listen((s) {
+          final pct = (s.bytesTransferred / (s.totalBytes == 0 ? 1 : s.totalBytes) * 100).toStringAsFixed(0);
+          debugPrint('[PROFILE] upload state=${s.state} $pct%');
+        });
 
       await task.whenComplete(() => null);
       debugPrint('[PROFILE] upload complete');
@@ -146,7 +149,7 @@ class _ProfilePageState extends State<ProfilePage> {
     } on FirebaseException catch (e) {
       debugPrint('[PROFILE][FIREBASE-ERROR] code=${e.code} message=${e.message}');
       final hint = (e.code == 'permission-denied' || e.code == 'unauthorized')
-          ? 'Autorizzazione negata: verifica che le regole Firebase permettano a ${user.uid} di scrivere in "users/${user.uid}/profile".'
+          ? 'Autorizzazione negata: verifica che le regole Firebase permettano a ${user.uid} di scrivere in "public_profiles/${user.uid}".'
           : (e.message ?? e.code);
       _snack('Errore Firebase: $hint');
       SyncStatusController.instance.add(
