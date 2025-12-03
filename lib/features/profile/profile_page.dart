@@ -87,11 +87,9 @@ class _ProfilePageState extends State<ProfilePage> {
       // 2) Bytes + metadata
       final Uint8List bytes = await picked.readAsBytes();
 
-      // Bucket corretto preso dalla console Storage
-      const String targetBucket = 'pan-nativa-progetto.firebasestorage.app';
-
-      // Istanziamo FirebaseStorage puntando esplicitamente a quel bucket
-      final FirebaseStorage storage = FirebaseStorage.instanceFor(bucket: targetBucket);
+      // Usa il bucket configurato dall’SDK (firebase_options) per evitare mismatch
+      // tra upload e download (web usa appspot.com).
+      final FirebaseStorage storage = FirebaseStorage.instance;
 
       // ref sul percorso public_profiles/<uid>/avatar.jpg
       final ref = storage
