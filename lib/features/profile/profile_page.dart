@@ -35,6 +35,16 @@ class _ProfilePageState extends State<ProfilePage> {
     _avatarUrl = user?.photoURL;
   }
 
+  /// URL locale (con cache bust) dell’avatar appena caricato.
+  String? _avatarUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = _auth.currentUser;
+    _avatarUrl = user?.photoURL;
+  }
+
   Future<void> _pickAndUpload() async {
     final user = _auth.currentUser;
     if (user == null) {
@@ -130,8 +140,12 @@ class _ProfilePageState extends State<ProfilePage> {
         task.snapshotEvents.listen(
           (s) {
             final total = (s.totalBytes == 0 ? 1 : s.totalBytes);
-            final pct = (s.bytesTransferred / total * 100).toStringAsFixed(0);
-            debugPrint('[PROFILE] upload state=${s.state} $pct% (${s.bytesTransferred}/$total)');
+            final pct =
+                (s.bytesTransferred / total * 100).toStringAsFixed(0);
+            debugPrint(
+              '[PROFILE] upload state=${s.state} $pct% '
+              '(${s.bytesTransferred}/$total)',
+            );
           },
           onError: (Object e, StackTrace st) {
             debugPrint('[PROFILE] upload error: $e');
