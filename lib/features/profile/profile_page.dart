@@ -75,20 +75,30 @@ class _ProfilePageState extends State<ProfilePage> {
       // 2) Bytes + metadata
       final Uint8List bytes = await picked.readAsBytes();
 
-      // Le regole Firebase condivise per Storage/Firestore prevedono cartelle
-      // per-utente sia private (users) sia pubbliche (public_profiles). Per le
-      // immagini profilo manteniamo la versione pubblica così da essere
-      // leggibile dal Marketplace e coerente con le regole di scrittura che
-      // accettano solo il proprietario.
-      final configuredBucket = Firebase.app().options.storageBucket;
-      final storage = configuredBucket != null
-          ? FirebaseStorage.instanceFor(bucket: configuredBucket)
-          : FirebaseStorage.instance;
-      final ref = storage.ref().child('public_profiles').child(user.uid).child('avatar.jpg');
-      final metadata = SettableMetadata(contentType: _inferContentType(picked.name));
+      // Bucket corretto preso dalla console Storage
+      const String targetBucket = 'pan-nativa-progetto.firebasestorage.app';
 
-      debugPrint('[PROFILE] storage bucket configured=$configuredBucket ref.bucket=${ref.bucket}');
+      // Istanziamo FirebaseStorage puntando esplicitamente a quel bucket
+      final FirebaseStorage storage = FirebaseStorage.instanceFor(bucket: targetBucket);
+
+      // ref sul percorso public_profiles/<uid>/avatar.jpg
+      final ref = storage
+          .ref()
+          .child('public_profiles')
+          .child(user.uid)
+          .child('avatar.jpg');
+
+      // metadata (content-type)
+      final metadata = SettableMetadata(
+        contentType: _inferContentType(picked.name),
+      );
+
+      // log di debug utili
+      final configuredBucket = Firebase.app().options.storageBucket;
+      debugPrint('[PROFILE] storage bucket configured=$configuredBucket');
+      debugPrint('[AVATAR] storage bucket=${storage.bucket}');
       debugPrint('[PROFILE] upload to ${ref.fullPath} contentType=${metadata.contentType} size=${bytes.lengthInBytes}');
+
       SyncStatusController.instance.add(
         title: 'Upload immagine',
         message: 'Invio a ${ref.fullPath}',
@@ -100,9 +110,9 @@ class _ProfilePageState extends State<ProfilePage> {
       try {
         debugPrint('Upload avatar: inizio');
         debugPrint('Upload avatar: bucket=${ref.bucket} path=${ref.fullPath}');
+
         final task = ref.putData(bytes, metadata);
 
-        // opzionale: progress
         task.snapshotEvents.listen(
           (s) {
             final total = (s.totalBytes == 0 ? 1 : s.totalBytes);
@@ -116,6 +126,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
         await task.whenComplete(() => null);
         debugPrint('Upload avatar: COMPLETATO');
+
         SyncStatusController.instance.add(
           title: 'Upload immagine',
           message: 'Upload completato',
