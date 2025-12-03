@@ -80,10 +80,13 @@ class _ProfilePageState extends State<ProfilePage> {
       // immagini profilo manteniamo la versione pubblica così da essere
       // leggibile dal Marketplace e coerente con le regole di scrittura che
       // accettano solo il proprietario.
-      final storage = FirebaseStorage.instance;
+      final configuredBucket = Firebase.app().options.storageBucket;
+      final storage = configuredBucket != null
+          ? FirebaseStorage.instanceFor(bucket: configuredBucket)
+          : FirebaseStorage.instance;
       final ref = storage.ref().child('public_profiles').child(user.uid).child('avatar.jpg');
       final metadata = SettableMetadata(contentType: _inferContentType(picked.name));
-      final configuredBucket = Firebase.app().options.storageBucket;
+
       debugPrint('[PROFILE] storage bucket configured=$configuredBucket ref.bucket=${ref.bucket}');
       debugPrint('[PROFILE] upload to ${ref.fullPath} contentType=${metadata.contentType} size=${bytes.lengthInBytes}');
       SyncStatusController.instance.add(
@@ -100,11 +103,18 @@ class _ProfilePageState extends State<ProfilePage> {
         final task = ref.putData(bytes, metadata);
 
         // opzionale: progress
-        task.snapshotEvents.listen((s) {
-          final pct = (s.bytesTransferred / (s.totalBytes == 0 ? 1 : s.totalBytes) * 100).toStringAsFixed(0);
-          debugPrint('[PROFILE] upload state=${s.state} $pct%');
-        });
-        await task;
+        task.snapshotEvents.listen(
+          (s) {
+            final total = (s.totalBytes == 0 ? 1 : s.totalBytes);
+            final pct = (s.bytesTransferred / total * 100).toStringAsFixed(0);
+            debugPrint('[PROFILE] upload state=${s.state} $pct% (${s.bytesTransferred}/$total)');
+          },
+          onError: (Object e, StackTrace st) {
+            debugPrint('[PROFILE] upload error: $e');
+          },
+        );
+
+        await task.whenComplete(() => null);
         debugPrint('Upload avatar: COMPLETATO');
         SyncStatusController.instance.add(
           title: 'Upload immagine',
