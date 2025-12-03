@@ -21,6 +21,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final _picker = ImagePicker();
 
   bool _busy = false;
+  String? _avatarUrl;
 
   Future<void> _pickAndUpload() async {
     final user = _auth.currentUser;
@@ -154,14 +155,14 @@ class _ProfilePageState extends State<ProfilePage> {
         category: 'storage',
       );
 
-      // 5) Aggiorna Auth + Firestore
+      // 5) Aggiorna Auth + Firestore (public profile consigliato)
       await user.updatePhotoURL(url);
       await Future.wait([
-        _db.collection('users').doc(user.uid).set({
-          'photoURL': url,
+        _db.collection('public_profiles').doc(user.uid).set({
+          'avatarUrl': url,
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true)),
-        _db.collection('public_profiles').doc(user.uid).set({
+        _db.collection('users').doc(user.uid).set({
           'photoURL': url,
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true)),
@@ -174,10 +175,12 @@ class _ProfilePageState extends State<ProfilePage> {
         category: 'storage',
       );
 
-      // 6) Refresh UI
+      // 6) Refresh UI e cache-busting
       await user.reload();
       if (!mounted) return;
-      setState(() {});
+      setState(() {
+        _avatarUrl = '$url?ts=${DateTime.now().millisecondsSinceEpoch}';
+      });
       _snack('Immagine profilo aggiornata.');
     } on FirebaseException catch (e) {
       debugPrint('[PROFILE][FIREBASE-ERROR] code=${e.code} message=${e.message}');
@@ -238,14 +241,21 @@ class _ProfilePageState extends State<ProfilePage> {
           );
         }
 
-        final docRef = _db.collection('users').doc(user.uid);
+        final docRef = _db.collection('public_profiles').doc(user.uid);
         return StreamBuilder<DocumentSnapshot>(
           stream: docRef.snapshots(),
           builder: (context, sDoc) {
             final data = (sDoc.data?.data() as Map<String, dynamic>?) ?? {};
-            final String photoUrl = (data['photoURL'] is String && (data['photoURL'] as String).trim().isNotEmpty)
-                ? (data['photoURL'] as String).trim()
-                : (user.photoURL ?? '');
+            final String firestoreAvatar =
+                (data['avatarUrl'] is String && (data['avatarUrl'] as String).trim().isNotEmpty)
+                    ? (data['avatarUrl'] as String).trim()
+                    : '';
+            final String displayAvatar = _avatarUrl ??
+                (firestoreAvatar.isNotEmpty
+                    ? firestoreAvatar
+                    : (user.photoURL ?? ''));
+
+            final String photoUrl = displayAvatar;
 
             return Scaffold(
               appBar: AppBar(title: const Text('Profilo')),
