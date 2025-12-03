@@ -55,6 +55,16 @@ class _ProfilePageState extends State<ProfilePage> {
     _avatarUrl = user?.photoURL;
   }
 
+  /// URL locale (con cache bust) dell’avatar appena caricato.
+  String? _avatarUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = _auth.currentUser;
+    _avatarUrl = user?.photoURL;
+  }
+
   Future<void> _pickAndUpload() async {
     final user = _auth.currentUser;
     if (user == null) {
