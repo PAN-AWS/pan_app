@@ -87,11 +87,9 @@ class _ProfilePageState extends State<ProfilePage> {
       // 2) Bytes + metadata
       final Uint8List bytes = await picked.readAsBytes();
 
-      // Bucket corretto preso dalla console Storage
-      const String targetBucket = 'pan-nativa-progetto.firebasestorage.app';
-
-      // Istanziamo FirebaseStorage puntando esplicitamente a quel bucket
-      final FirebaseStorage storage = FirebaseStorage.instanceFor(bucket: targetBucket);
+      // Usa il bucket configurato dall’SDK (firebase_options) per evitare mismatch
+      // tra upload e download (web usa appspot.com).
+      final FirebaseStorage storage = FirebaseStorage.instance;
 
       // ref sul percorso public_profiles/<uid>/avatar.jpg
       final ref = storage
@@ -196,7 +194,7 @@ class _ProfilePageState extends State<ProfilePage> {
       await user.reload();
       if (!mounted) return;
       setState(() {
-        _avatarUrl = '$url?ts=${DateTime.now().millisecondsSinceEpoch}';
+        _avatarUrl = _withCacheBust(url);
       });
       _snack('Immagine profilo aggiornata.');
     } on FirebaseException catch (e) {
@@ -234,6 +232,16 @@ class _ProfilePageState extends State<ProfilePage> {
         .showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  String _withCacheBust(String url, {Timestamp? updatedAt}) {
+    if (url.isEmpty) return url;
+    final uri = Uri.parse(url);
+    final params = Map<String, String>.from(uri.queryParameters);
+    params['ts'] =
+        (updatedAt?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch)
+            .toString();
+    return uri.replace(queryParameters: params).toString();
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
@@ -258,14 +266,19 @@ class _ProfilePageState extends State<ProfilePage> {
           stream: docRef.snapshots(),
           builder: (context, sDoc) {
             final data = (sDoc.data?.data() as Map<String, dynamic>?) ?? {};
+            final Timestamp? updatedAt = data['updatedAt'] is Timestamp
+                ? (data['updatedAt'] as Timestamp)
+                : null;
             final String firestoreAvatar =
                 (data['avatarUrl'] is String && (data['avatarUrl'] as String).trim().isNotEmpty)
                     ? (data['avatarUrl'] as String).trim()
                     : '';
-            final String displayAvatar = _avatarUrl ??
-                (firestoreAvatar.isNotEmpty
-                    ? firestoreAvatar
-                    : (user.photoURL ?? ''));
+            final String firestoreAvatarWithCacheBust = firestoreAvatar.isNotEmpty
+                ? _withCacheBust(firestoreAvatar, updatedAt: updatedAt)
+                : '';
+            final String displayAvatar = firestoreAvatarWithCacheBust.isNotEmpty
+                ? firestoreAvatarWithCacheBust
+                : (_avatarUrl ?? (user.photoURL ?? ''));
 
             final String photoUrl = displayAvatar;
 
