@@ -180,6 +180,8 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       ]);
 
+      debugPrint('[AVATAR-UPLOAD] uid=${user.uid} url=$url bucket=${ref.bucket} path=${ref.fullPath}');
+
       debugPrint('[PROFILE] auth+firestore (private+public) updated');
       SyncStatusController.instance.add(
         title: 'Upload immagine',
@@ -257,9 +259,17 @@ class _ProfilePageState extends State<ProfilePage> {
                     ? (data['avatarUrl'] as String).trim()
                     : '';
 
-            if (firestoreAvatar.isNotEmpty && _avatarUrl == null) {
-              _avatarUrl =
-                  '$firestoreAvatar?ts=${DateTime.now().millisecondsSinceEpoch}';
+            String? avatarWithTs;
+            if (firestoreAvatar.isNotEmpty) {
+              final ts = data['updatedAt'];
+              final cacheTs = ts is Timestamp
+                  ? ts.millisecondsSinceEpoch
+                  : DateTime.now().millisecondsSinceEpoch;
+              avatarWithTs = '$firestoreAvatar?ts=$cacheTs';
+            }
+
+            if (avatarWithTs != null && _avatarUrl != avatarWithTs) {
+              _avatarUrl = avatarWithTs;
             }
 
             final String displayAvatar = _avatarUrl ?? firestoreAvatar;

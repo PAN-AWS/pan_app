@@ -41,11 +41,19 @@ class PublicProfilePage extends StatelessWidget {
               ? '${d['provinceName']} (${d['provinceCode'] ?? ''})'
               : (d['provinceCode']?.toString() ?? '-');
           final products = (d['products'] as List?)?.cast<String>() ?? const <String>[];
-          final firestoreAvatar =
+          final firestoreAvatarRaw =
               (d['avatarUrl'] is String && (d['avatarUrl'] as String).trim().isNotEmpty)
                   ? (d['avatarUrl'] as String).trim()
                   : '';
-          final avatarUrlToShow = firestoreAvatar;
+          final updatedAt = d['updatedAt'];
+          String avatarUrlToShow = '';
+          if (firestoreAvatarRaw.isNotEmpty) {
+            final cacheTs = updatedAt is Timestamp
+                ? updatedAt.millisecondsSinceEpoch
+                : DateTime.now().millisecondsSinceEpoch;
+            avatarUrlToShow = '$firestoreAvatarRaw?ts=$cacheTs';
+          }
+          debugPrint('[PUBLIC-PROFILE] uid=$uid avatar=$avatarUrlToShow updatedAt=$updatedAt');
           final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
           return ListView(

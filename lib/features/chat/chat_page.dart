@@ -221,11 +221,19 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
                           final uid = docs[i].id;
                           final name = (data['displayName'] ?? 'Utente') as String;
                           final role = (data['role'] ?? '') as String;
-                          final firestoreAvatar =
+                          final firestoreAvatarRaw =
                               (data['avatarUrl'] is String && (data['avatarUrl'] as String).trim().isNotEmpty)
                                   ? (data['avatarUrl'] as String).trim()
                                   : '';
-                          final avatarUrlToShow = firestoreAvatar;
+                          final updatedAt = data['updatedAt'];
+                          String avatarUrlToShow = '';
+                          if (firestoreAvatarRaw.isNotEmpty) {
+                            final cacheTs = updatedAt is Timestamp
+                                ? updatedAt.millisecondsSinceEpoch
+                                : DateTime.now().millisecondsSinceEpoch;
+                            avatarUrlToShow = '$firestoreAvatarRaw?ts=$cacheTs';
+                          }
+                          debugPrint('[CHAT-SEARCH] uid=$uid avatar=$avatarUrlToShow');
                           final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
                           return ListTile(
                             leading: CircleAvatar(
@@ -302,14 +310,21 @@ class _DmList extends StatelessWidget {
       final db = FirebaseFirestore.instance;
 
       // 1) Provo public_profiles
-        final pub = await db.collection('public_profiles').doc(uid).get();
-        if (pub.exists) {
-          final u = pub.data() as Map<String, dynamic>;
-          final name = (u['displayName'] ?? '').toString();
-          final role = (u['role'] ?? '').toString();
-          final avatar = (u['avatarUrl'] is String && (u['avatarUrl'] as String).trim().isNotEmpty)
-              ? (u['avatarUrl'] as String).trim()
-              : '';
+      final pub = await db.collection('public_profiles').doc(uid).get();
+      if (pub.exists) {
+        final u = pub.data() as Map<String, dynamic>;
+        final name = (u['displayName'] ?? '').toString();
+        final role = (u['role'] ?? '').toString();
+        final ts = u['updatedAt'];
+        String avatar = (u['avatarUrl'] is String && (u['avatarUrl'] as String).trim().isNotEmpty)
+            ? (u['avatarUrl'] as String).trim()
+            : '';
+        if (avatar.isNotEmpty) {
+          final cacheTs = ts is Timestamp
+              ? ts.millisecondsSinceEpoch
+              : DateTime.now().millisecondsSinceEpoch;
+          avatar = '$avatar?ts=$cacheTs';
+        }
         if (name.trim().isNotEmpty) {
           return {'name': name, 'role': role, 'avatar': avatar};
         }
@@ -325,13 +340,6 @@ class _DmList extends StatelessWidget {
         final composed = '$first $last'.trim();
         if (composed.isNotEmpty) {
           return {'name': composed, 'role': role, 'avatar': ''};
-        }
-      }
-
-      if (uid == meUid) {
-        final authPhoto = FirebaseAuth.instance.currentUser?.photoURL ?? '';
-        if (authPhoto.isNotEmpty) {
-          return {'name': uid, 'role': '', 'avatar': authPhoto};
         }
       }
 
@@ -405,9 +413,9 @@ class _DmList extends StatelessWidget {
               builder: (context, uSnap) {
                 final title = uSnap.data?['name'] ?? otherUid;
                 final subtitle2 = uSnap.data?['role'] ?? '';
-                final firestoreAvatar = uSnap.data?['avatar'] ?? '';
-                final avatarUrlToShow = firestoreAvatar;
+                final avatarUrlToShow = uSnap.data?['avatar'] ?? '';
                 final initials = title.isNotEmpty ? title[0].toUpperCase() : '?';
+                debugPrint('[CHAT-DM] otherUid=$otherUid avatar=$avatarUrlToShow');
 
                 return ListTile(
                   leading: InkWell(
