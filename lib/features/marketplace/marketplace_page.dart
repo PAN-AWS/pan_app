@@ -218,11 +218,19 @@ class _MarketplacePageState extends State<MarketplacePage> {
                   final provCode = (d['provinceCode'] ?? '-').toString();
                   final provName = (d['provinceName'] ?? '').toString();
                   final prov = provName.isNotEmpty ? '$provName ($provCode)' : provCode;
-                  final firestoreAvatar =
+                  final firestoreAvatarRaw =
                       (d['avatarUrl'] is String && (d['avatarUrl'] as String).trim().isNotEmpty)
                           ? (d['avatarUrl'] as String).trim()
                           : '';
-                  final avatarUrlToShow = firestoreAvatar;
+                  final updatedAt = d['updatedAt'];
+                  String avatarUrlToShow = '';
+                  if (firestoreAvatarRaw.isNotEmpty) {
+                    final cacheTs = updatedAt is Timestamp
+                        ? updatedAt.millisecondsSinceEpoch
+                        : DateTime.now().millisecondsSinceEpoch;
+                    avatarUrlToShow = '$firestoreAvatarRaw?ts=$cacheTs';
+                  }
+                  debugPrint('[MARKETPLACE] uid=$uid avatar=$avatarUrlToShow updatedAt=$updatedAt');
                   final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
                   return ListTile(
