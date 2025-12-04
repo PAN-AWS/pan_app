@@ -225,10 +225,7 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
                               (data['avatarUrl'] is String && (data['avatarUrl'] as String).trim().isNotEmpty)
                                   ? (data['avatarUrl'] as String).trim()
                                   : '';
-                          final bool isMe = FirebaseAuth.instance.currentUser?.uid == uid;
-                          final authPhoto = isMe ? (FirebaseAuth.instance.currentUser?.photoURL ?? '') : '';
-                          final avatarUrlToShow =
-                              (firestoreAvatar.isNotEmpty) ? firestoreAvatar : authPhoto;
+                          final avatarUrlToShow = firestoreAvatar;
                           final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
                           return ListTile(
                             leading: CircleAvatar(
@@ -409,10 +406,7 @@ class _DmList extends StatelessWidget {
                 final title = uSnap.data?['name'] ?? otherUid;
                 final subtitle2 = uSnap.data?['role'] ?? '';
                 final firestoreAvatar = uSnap.data?['avatar'] ?? '';
-                final isMe = FirebaseAuth.instance.currentUser?.uid == otherUid;
-                final authPhoto = isMe ? (FirebaseAuth.instance.currentUser?.photoURL ?? '') : '';
-                final avatarUrlToShow =
-                    (firestoreAvatar.isNotEmpty) ? firestoreAvatar : authPhoto;
+                final avatarUrlToShow = firestoreAvatar;
                 final initials = title.isNotEmpty ? title[0].toUpperCase() : '?';
 
                 return ListTile(
