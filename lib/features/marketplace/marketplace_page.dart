@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../marketplace/public_profile_page.dart';
 import '../../app/widgets/app_nav_bar.dart';
@@ -217,9 +218,21 @@ class _MarketplacePageState extends State<MarketplacePage> {
                   final provCode = (d['provinceCode'] ?? '-').toString();
                   final provName = (d['provinceName'] ?? '').toString();
                   final prov = provName.isNotEmpty ? '$provName ($provCode)' : provCode;
+                  final firestoreAvatar =
+                      (d['avatarUrl'] is String && (d['avatarUrl'] as String).trim().isNotEmpty)
+                          ? (d['avatarUrl'] as String).trim()
+                          : '';
+                  final authPhoto = FirebaseAuth.instance.currentUser?.photoURL ?? '';
+                  final avatarUrlToShow =
+                      (firestoreAvatar.isNotEmpty) ? firestoreAvatar : authPhoto;
+                  final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
                   return ListTile(
-                    leading: const CircleAvatar(child: Icon(Icons.person)),
+                    leading: CircleAvatar(
+                      backgroundImage:
+                          (avatarUrlToShow.isNotEmpty) ? NetworkImage(avatarUrlToShow) : null,
+                      child: (avatarUrlToShow.isEmpty) ? Text(initials) : null,
+                    ),
                     title: Text(name.isEmpty ? '-' : name),
                     subtitle: Text('$role • $prov'), // niente email
                     onTap: () {
