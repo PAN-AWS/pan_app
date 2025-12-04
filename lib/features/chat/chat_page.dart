@@ -225,7 +225,8 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
                               (data['avatarUrl'] is String && (data['avatarUrl'] as String).trim().isNotEmpty)
                                   ? (data['avatarUrl'] as String).trim()
                                   : '';
-                          final authPhoto = FirebaseAuth.instance.currentUser?.photoURL ?? '';
+                          final bool isMe = FirebaseAuth.instance.currentUser?.uid == uid;
+                          final authPhoto = isMe ? (FirebaseAuth.instance.currentUser?.photoURL ?? '') : '';
                           final avatarUrlToShow =
                               (firestoreAvatar.isNotEmpty) ? firestoreAvatar : authPhoto;
                           final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
@@ -324,13 +325,16 @@ class _DmList extends StatelessWidget {
         final first = (d['firstName'] ?? d['name'] ?? '').toString().trim();
         final last  = (d['lastName']  ?? d['surname'] ?? '').toString().trim();
         final role  = (d['role'] ?? '').toString();
-        final avatar =
-            (d['photoURL'] is String && (d['photoURL'] as String).trim().isNotEmpty)
-                ? (d['photoURL'] as String).trim()
-                : '';
         final composed = '$first $last'.trim();
         if (composed.isNotEmpty) {
-          return {'name': composed, 'role': role, 'avatar': avatar};
+          return {'name': composed, 'role': role, 'avatar': ''};
+        }
+      }
+
+      if (uid == meUid) {
+        final authPhoto = FirebaseAuth.instance.currentUser?.photoURL ?? '';
+        if (authPhoto.isNotEmpty) {
+          return {'name': uid, 'role': '', 'avatar': authPhoto};
         }
       }
 
@@ -405,7 +409,8 @@ class _DmList extends StatelessWidget {
                 final title = uSnap.data?['name'] ?? otherUid;
                 final subtitle2 = uSnap.data?['role'] ?? '';
                 final firestoreAvatar = uSnap.data?['avatar'] ?? '';
-                final authPhoto = FirebaseAuth.instance.currentUser?.photoURL ?? '';
+                final isMe = FirebaseAuth.instance.currentUser?.uid == otherUid;
+                final authPhoto = isMe ? (FirebaseAuth.instance.currentUser?.photoURL ?? '') : '';
                 final avatarUrlToShow =
                     (firestoreAvatar.isNotEmpty) ? firestoreAvatar : authPhoto;
                 final initials = title.isNotEmpty ? title[0].toUpperCase() : '?';
