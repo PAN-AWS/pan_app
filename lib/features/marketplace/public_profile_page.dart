@@ -41,13 +41,26 @@ class PublicProfilePage extends StatelessWidget {
               ? '${d['provinceName']} (${d['provinceCode'] ?? ''})'
               : (d['provinceCode']?.toString() ?? '-');
           final products = (d['products'] as List?)?.cast<String>() ?? const <String>[];
+          final firestoreAvatar =
+              (d['avatarUrl'] is String && (d['avatarUrl'] as String).trim().isNotEmpty)
+                  ? (d['avatarUrl'] as String).trim()
+                  : '';
+          final authPhoto = FirebaseAuth.instance.currentUser?.photoURL ?? '';
+          final avatarUrlToShow =
+              (firestoreAvatar.isNotEmpty) ? firestoreAvatar : authPhoto;
+          final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
               Row(
                 children: [
-                  CircleAvatar(radius: 28, child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?')),
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundImage:
+                        (avatarUrlToShow.isNotEmpty) ? NetworkImage(avatarUrlToShow) : null,
+                    child: (avatarUrlToShow.isEmpty) ? Text(initials) : null,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(

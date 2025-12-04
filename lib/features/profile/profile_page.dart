@@ -280,6 +280,8 @@ class _ProfilePageState extends State<ProfilePage> {
                     : (user.photoURL ?? ''));
 
             final String photoUrl = displayAvatar;
+            debugPrint(
+                '[PROFILE] avatar -> local=$_avatarUrl firestore=$firestoreAvatar auth=${user.photoURL}');
 
             return Scaffold(
               appBar: AppBar(title: const Text('Profilo')),

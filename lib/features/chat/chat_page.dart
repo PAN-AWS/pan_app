@@ -221,8 +221,20 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
                           final uid = docs[i].id;
                           final name = (data['displayName'] ?? 'Utente') as String;
                           final role = (data['role'] ?? '') as String;
+                          final firestoreAvatar =
+                              (data['avatarUrl'] is String && (data['avatarUrl'] as String).trim().isNotEmpty)
+                                  ? (data['avatarUrl'] as String).trim()
+                                  : '';
+                          final authPhoto = FirebaseAuth.instance.currentUser?.photoURL ?? '';
+                          final avatarUrlToShow =
+                              (firestoreAvatar.isNotEmpty) ? firestoreAvatar : authPhoto;
+                          final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
                           return ListTile(
-                            leading: const CircleAvatar(child: Icon(Icons.person)),
+                            leading: CircleAvatar(
+                              backgroundImage:
+                                  (avatarUrlToShow.isNotEmpty) ? NetworkImage(avatarUrlToShow) : null,
+                              child: (avatarUrlToShow.isEmpty) ? Text(initials) : null,
+                            ),
                             title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
                             subtitle: Text(role, maxLines: 1, overflow: TextOverflow.ellipsis),
                             onTap: () async {
@@ -297,8 +309,11 @@ class _DmList extends StatelessWidget {
         final u = pub.data() as Map<String, dynamic>;
         final name = (u['displayName'] ?? '').toString();
         final role = (u['role'] ?? '').toString();
+        final avatar = (u['avatarUrl'] is String && (u['avatarUrl'] as String).trim().isNotEmpty)
+            ? (u['avatarUrl'] as String).trim()
+            : '';
         if (name.trim().isNotEmpty) {
-          return {'name': name, 'role': role};
+          return {'name': name, 'role': role, 'avatar': avatar};
         }
       }
 
@@ -309,16 +324,20 @@ class _DmList extends StatelessWidget {
         final first = (d['firstName'] ?? d['name'] ?? '').toString().trim();
         final last  = (d['lastName']  ?? d['surname'] ?? '').toString().trim();
         final role  = (d['role'] ?? '').toString();
+        final avatar =
+            (d['photoURL'] is String && (d['photoURL'] as String).trim().isNotEmpty)
+                ? (d['photoURL'] as String).trim()
+                : '';
         final composed = '$first $last'.trim();
         if (composed.isNotEmpty) {
-          return {'name': composed, 'role': role};
+          return {'name': composed, 'role': role, 'avatar': avatar};
         }
       }
 
       // 3) Estremo fallback: UID
-      return {'name': uid, 'role': ''};
+      return {'name': uid, 'role': '', 'avatar': ''};
     } catch (_) {
-      return {'name': uid, 'role': ''};
+      return {'name': uid, 'role': '', 'avatar': ''};
     }
   }
 
@@ -385,6 +404,11 @@ class _DmList extends StatelessWidget {
               builder: (context, uSnap) {
                 final title = uSnap.data?['name'] ?? otherUid;
                 final subtitle2 = uSnap.data?['role'] ?? '';
+                final firestoreAvatar = uSnap.data?['avatar'] ?? '';
+                final authPhoto = FirebaseAuth.instance.currentUser?.photoURL ?? '';
+                final avatarUrlToShow =
+                    (firestoreAvatar.isNotEmpty) ? firestoreAvatar : authPhoto;
+                final initials = title.isNotEmpty ? title[0].toUpperCase() : '?';
 
                 return ListTile(
                   leading: InkWell(
@@ -401,7 +425,12 @@ class _DmList extends StatelessWidget {
                           backgroundColor: isSelected
                               ? Theme.of(context).colorScheme.primaryContainer
                               : null,
-                          child: const Icon(Icons.person),
+                          backgroundImage: (avatarUrlToShow.isNotEmpty)
+                              ? NetworkImage(avatarUrlToShow)
+                              : null,
+                          child: (avatarUrlToShow.isEmpty)
+                              ? Text(initials)
+                              : null,
                         ),
                         if (unread) Positioned(right: 0, bottom: 0, child: _bigUnreadDot(context)),
                       ],
