@@ -29,7 +29,8 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     final user = _auth.currentUser;
-    _avatarUrl = user?.photoURL;
+    final authPhoto = user?.photoURL?.trim();
+    _avatarUrl = (authPhoto != null && authPhoto.isNotEmpty) ? authPhoto : null;
   }
 
   Future<void> _pickAndUpload() async {

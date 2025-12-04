@@ -305,14 +305,14 @@ class _DmList extends StatelessWidget {
       final db = FirebaseFirestore.instance;
 
       // 1) Provo public_profiles
-      final pub = await db.collection('public_profiles').doc(uid).get();
-      if (pub.exists) {
-        final u = pub.data() as Map<String, dynamic>;
-        final name = (u['displayName'] ?? '').toString();
-        final role = (u['role'] ?? '').toString();
-        final avatar = (u['avatarUrl'] is String && (u['avatarUrl'] as String).trim().isNotEmpty)
-            ? (u['avatarUrl'] as String).trim()
-            : '';
+        final pub = await db.collection('public_profiles').doc(uid).get();
+        if (pub.exists) {
+          final u = pub.data() as Map<String, dynamic>;
+          final name = (u['displayName'] ?? '').toString();
+          final role = (u['role'] ?? '').toString();
+          final avatar = (u['avatarUrl'] is String && (u['avatarUrl'] as String).trim().isNotEmpty)
+              ? (u['avatarUrl'] as String).trim()
+              : '';
         if (name.trim().isNotEmpty) {
           return {'name': name, 'role': role, 'avatar': avatar};
         }
