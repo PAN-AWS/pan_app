@@ -23,11 +23,9 @@ class _ProfilePageState extends State<ProfilePage> {
   final _picker = ImagePicker();
 
   bool _busy = false;
+
   /// URL locale (con cache bust) dell’avatar appena caricato.
   String? _avatarUrl;
-  String? _lastFirestoreAvatarUrl;
-  Timestamp? _lastFirestoreUpdatedAt;
-  bool _loggedFirestoreError = false;
 
   @override
   void initState() {
@@ -90,9 +88,12 @@ class _ProfilePageState extends State<ProfilePage> {
       // 2) Bytes + metadata
       final Uint8List bytes = await picked.readAsBytes();
 
-      // Usa il bucket configurato dall’SDK (firebase_options) per evitare mismatch
-      // tra upload e download (web usa appspot.com).
-      final FirebaseStorage storage = FirebaseStorage.instance;
+      // Bucket corretto preso dalla console Storage
+      const String targetBucket = 'pan-nativa-progetto.firebasestorage.app';
+
+      // Istanziamo FirebaseStorage puntando esplicitamente a quel bucket
+      final FirebaseStorage storage =
+          FirebaseStorage.instanceFor(bucket: targetBucket);
 
       // ref sul percorso public_profiles/<uid>/avatar.jpg
       final ref = storage
@@ -102,15 +103,17 @@ class _ProfilePageState extends State<ProfilePage> {
           .child('avatar.jpg');
 
       // metadata (content-type)
-      final metadata = SettableMetadata(
-        contentType: _inferContentType(picked.name),
-      );
+      final metadata =
+          SettableMetadata(contentType: _inferContentType(picked.name));
 
       // log di debug utili
       final configuredBucket = Firebase.app().options.storageBucket;
       debugPrint('[PROFILE] storage bucket configured=$configuredBucket');
       debugPrint('[AVATAR] storage bucket=${storage.bucket}');
-      debugPrint('[PROFILE] upload to ${ref.fullPath} contentType=${metadata.contentType} size=${bytes.lengthInBytes}');
+      debugPrint(
+        '[PROFILE] upload to ${ref.fullPath} '
+        'contentType=${metadata.contentType} size=${bytes.lengthInBytes}',
+      );
 
       SyncStatusController.instance.add(
         title: 'Upload immagine',
@@ -161,24 +164,34 @@ class _ProfilePageState extends State<ProfilePage> {
         rethrow;
       }
 
-      // 3b) Verifica che l'oggetto sia effettivamente sul bucket.
-      await _verifyStorageObject(ref);
-
       // 4) URL di download
-      final url = await _getDownloadUrlWithLog(ref);
+      final url = await ref.getDownloadURL();
+      debugPrint('[PROFILE] got URL: $url');
+      SyncStatusController.instance.add(
+        title: 'Upload immagine',
+        message: 'URL ottenuto',
+        success: true,
+        category: 'storage',
+      );
 
-      // 5) Aggiorna Auth + Firestore (public profile consigliato)
+      // 5) Aggiorna Auth + Firestore (public profile + users)
       await user.updatePhotoURL(url);
 
       await Future.wait([
-        _db.collection('public_profiles').doc(user.uid).set({
-          'avatarUrl': url,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true)),
-        _db.collection('users').doc(user.uid).set({
-          'photoURL': url,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true)),
+        _db.collection('public_profiles').doc(user.uid).set(
+          {
+            'avatarUrl': url,
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        ),
+        _db.collection('users').doc(user.uid).set(
+          {
+            'photoURL': url,
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        ),
       ]);
 
       debugPrint('[PROFILE] auth+firestore (private+public) updated');
@@ -193,7 +206,7 @@ class _ProfilePageState extends State<ProfilePage> {
       await user.reload();
       if (!mounted) return;
       setState(() {
-        _avatarUrl = _withCacheBust(url);
+        _avatarUrl = '$url?ts=${DateTime.now().millisecondsSinceEpoch}';
       });
       _snack('Immagine profilo aggiornata.');
     } on FirebaseException catch (e) {
@@ -225,109 +238,10 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _verifyStorageObject(Reference ref) async {
-    try {
-      SyncStatusController.instance.add(
-        title: 'Download immagine',
-        message: 'Verifica presenza oggetto su ${ref.fullPath}',
-        success: true,
-        category: 'storage',
-      );
-      final meta = await ref.getMetadata();
-      debugPrint(
-        '[PROFILE] metadata: bucket=${meta.bucket} ct=${meta.contentType} size=${meta.size} updated=${meta.updated}',
-      );
-      SyncStatusController.instance.add(
-        title: 'Download immagine',
-        message:
-            'Metadata ok: ${meta.bucket}/${ref.fullPath} (${meta.size ?? 0} bytes)',
-        success: true,
-        category: 'storage',
-      );
-    } on FirebaseException catch (e) {
-      debugPrint('[PROFILE][METADATA-ERROR] code=${e.code} message=${e.message}');
-      SyncStatusController.instance.add(
-        title: 'Download immagine',
-        message:
-            'Impossibile leggere metadata su ${ref.fullPath}: ${e.code}',
-        success: false,
-        category: 'storage',
-      );
-      rethrow;
-    }
-  }
-
-  Future<String> _getDownloadUrlWithLog(Reference ref) async {
-    try {
-      SyncStatusController.instance.add(
-        title: 'Download immagine',
-        message: 'Richiesta download URL',
-        success: true,
-        category: 'storage',
-      );
-      final url = await ref.getDownloadURL();
-      debugPrint('[PROFILE] got URL: $url');
-      SyncStatusController.instance.add(
-        title: 'Download immagine',
-        message: 'URL ottenuto correttamente',
-        success: true,
-        category: 'storage',
-      );
-      return url;
-    } on FirebaseException catch (e) {
-      debugPrint('[PROFILE][GET-URL-ERROR] code=${e.code} message=${e.message}');
-      SyncStatusController.instance.add(
-        title: 'Download immagine',
-        message: 'Errore download URL: ${e.code}',
-        success: false,
-        category: 'storage',
-      );
-      rethrow;
-    }
-  }
-
-  void _logFirestoreAvatarState(String url, Timestamp? updatedAt) {
-    final sameUrl = url == _lastFirestoreAvatarUrl;
-    final sameTs = (_lastFirestoreUpdatedAt?.millisecondsSinceEpoch ?? 0) ==
-        (updatedAt?.millisecondsSinceEpoch ?? 0);
-    if (sameUrl && sameTs) return;
-
-    _lastFirestoreAvatarUrl = url;
-    _lastFirestoreUpdatedAt = updatedAt;
-
-    if (url.isEmpty) {
-      SyncStatusController.instance.add(
-        title: 'Download immagine',
-        message: 'Nessun avatar registrato su Firestore.',
-        success: false,
-        category: 'storage',
-      );
-      return;
-    }
-
-    final ts = updatedAt?.toDate().toIso8601String() ?? 'n/d';
-    SyncStatusController.instance.add(
-      title: 'Download immagine',
-      message: 'Avatar Firestore trovato (ts=$ts)',
-      success: true,
-      category: 'storage',
-    );
-  }
-
   void _snack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(msg)));
-  }
-
-  String _withCacheBust(String url, {Timestamp? updatedAt}) {
-    if (url.isEmpty) return url;
-    final uri = Uri.parse(url);
-    final params = Map<String, String>.from(uri.queryParameters);
-    params['ts'] =
-        (updatedAt?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch)
-            .toString();
-    return uri.replace(queryParameters: params).toString();
   }
 
   @override
@@ -353,36 +267,16 @@ class _ProfilePageState extends State<ProfilePage> {
         return StreamBuilder<DocumentSnapshot>(
           stream: docRef.snapshots(),
           builder: (context, sDoc) {
-            if (sDoc.hasError && !_loggedFirestoreError) {
-              _loggedFirestoreError = true;
-              SyncStatusController.instance.add(
-                title: 'Download immagine',
-                message:
-                    'Errore Firestore (${sDoc.error.runtimeType}): ${sDoc.error}',
-                success: false,
-                category: 'storage',
-              );
-            }
-
-            if (!sDoc.hasError && _loggedFirestoreError) {
-              _loggedFirestoreError = false;
-            }
-
-            final data = (sDoc.data?.data() as Map<String, dynamic>?) ?? {};
-            final Timestamp? updatedAt = data['updatedAt'] is Timestamp
-                ? (data['updatedAt'] as Timestamp)
-                : null;
+            final data =
+                (sDoc.data?.data() as Map<String, dynamic>?) ?? {};
             final String firestoreAvatar =
-                (data['avatarUrl'] is String && (data['avatarUrl'] as String).trim().isNotEmpty)
+                (data['avatarUrl'] is String &&
+                        (data['avatarUrl'] as String).trim().isNotEmpty)
                     ? (data['avatarUrl'] as String).trim()
                     : '';
-            _logFirestoreAvatarState(firestoreAvatar, updatedAt);
-            final String firestoreAvatarWithCacheBust = firestoreAvatar.isNotEmpty
-                ? _withCacheBust(firestoreAvatar, updatedAt: updatedAt)
-                : '';
             final String displayAvatar = _avatarUrl ??
-                (firestoreAvatarWithCacheBust.isNotEmpty
-                    ? firestoreAvatarWithCacheBust
+                (firestoreAvatar.isNotEmpty
+                    ? firestoreAvatar
                     : (user.photoURL ?? ''));
 
             final String photoUrl = displayAvatar;
