@@ -45,7 +45,9 @@ class PublicProfilePage extends StatelessWidget {
               (d['avatarUrl'] is String && (d['avatarUrl'] as String).trim().isNotEmpty)
                   ? (d['avatarUrl'] as String).trim()
                   : '';
-          final authPhoto = FirebaseAuth.instance.currentUser?.photoURL ?? '';
+          final authPhoto = isMe
+              ? (FirebaseAuth.instance.currentUser?.photoURL?.trim() ?? '')
+              : '';
           final avatarUrlToShow =
               (firestoreAvatar.isNotEmpty) ? firestoreAvatar : authPhoto;
           final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';

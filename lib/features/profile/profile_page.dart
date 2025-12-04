@@ -23,15 +23,14 @@ class _ProfilePageState extends State<ProfilePage> {
   final _picker = ImagePicker();
 
   bool _busy = false;
-
-  /// URL locale (con cache bust) dell’avatar appena caricato.
   String? _avatarUrl;
 
   @override
   void initState() {
     super.initState();
     final user = _auth.currentUser;
-    _avatarUrl = user?.photoURL;
+    final authPhoto = user?.photoURL?.trim();
+    _avatarUrl = (authPhoto != null && authPhoto.isNotEmpty) ? authPhoto : null;
   }
 
   Future<void> _pickAndUpload() async {
@@ -57,7 +56,6 @@ class _ProfilePageState extends State<ProfilePage> {
         category: 'storage',
       );
 
-      // 1) Scegli immagine
       final picked = await _picker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 1200,
@@ -85,28 +83,22 @@ class _ProfilePageState extends State<ProfilePage> {
         category: 'storage',
       );
 
-      // 2) Bytes + metadata
       final Uint8List bytes = await picked.readAsBytes();
 
-      // Bucket corretto preso dalla console Storage
       const String targetBucket = 'pan-nativa-progetto.firebasestorage.app';
 
-      // Istanziamo FirebaseStorage puntando esplicitamente a quel bucket
       final FirebaseStorage storage =
           FirebaseStorage.instanceFor(bucket: targetBucket);
 
-      // ref sul percorso public_profiles/<uid>/avatar.jpg
       final ref = storage
           .ref()
           .child('public_profiles')
           .child(user.uid)
           .child('avatar.jpg');
 
-      // metadata (content-type)
       final metadata =
           SettableMetadata(contentType: _inferContentType(picked.name));
 
-      // log di debug utili
       final configuredBucket = Firebase.app().options.storageBucket;
       debugPrint('[PROFILE] storage bucket configured=$configuredBucket');
       debugPrint('[AVATAR] storage bucket=${storage.bucket}');
@@ -122,7 +114,6 @@ class _ProfilePageState extends State<ProfilePage> {
         category: 'storage',
       );
 
-      // 3) Upload
       try {
         debugPrint('Upload avatar: inizio');
         debugPrint('Upload avatar: bucket=${ref.bucket} path=${ref.fullPath}');
@@ -164,7 +155,6 @@ class _ProfilePageState extends State<ProfilePage> {
         rethrow;
       }
 
-      // 4) URL di download
       final url = await ref.getDownloadURL();
       debugPrint('[PROFILE] got URL: $url');
       SyncStatusController.instance.add(
@@ -174,7 +164,6 @@ class _ProfilePageState extends State<ProfilePage> {
         category: 'storage',
       );
 
-      // 5) Aggiorna Auth + Firestore (public profile + users)
       await user.updatePhotoURL(url);
 
       await Future.wait([
@@ -202,7 +191,6 @@ class _ProfilePageState extends State<ProfilePage> {
         category: 'storage',
       );
 
-      // 6) Refresh UI e cache-busting
       await user.reload();
       if (!mounted) return;
       setState(() {
@@ -210,8 +198,7 @@ class _ProfilePageState extends State<ProfilePage> {
       });
       _snack('Immagine profilo aggiornata.');
     } on FirebaseException catch (e) {
-      debugPrint(
-          '[PROFILE][FIREBASE-ERROR] code=${e.code} message=${e.message}');
+      debugPrint('[PROFILE][FIREBASE-ERROR] code=${e.code} message=${e.message}');
       final hint = (e.code == 'permission-denied' ||
               e.code == 'unauthorized')
           ? 'Autorizzazione negata: verifica che le regole Firebase permettano a ${_auth.currentUser?.uid} '
@@ -240,8 +227,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -267,21 +253,36 @@ class _ProfilePageState extends State<ProfilePage> {
         return StreamBuilder<DocumentSnapshot>(
           stream: docRef.snapshots(),
           builder: (context, sDoc) {
-            final data =
-                (sDoc.data?.data() as Map<String, dynamic>?) ?? {};
+            final data = (sDoc.data?.data() as Map<String, dynamic>?) ?? {};
             final String firestoreAvatar =
                 (data['avatarUrl'] is String &&
                         (data['avatarUrl'] as String).trim().isNotEmpty)
                     ? (data['avatarUrl'] as String).trim()
                     : '';
-            final String displayAvatar = _avatarUrl ??
-                (firestoreAvatar.isNotEmpty
-                    ? firestoreAvatar
-                    : (user.photoURL ?? ''));
+
+            final String? localAvatar =
+                (_avatarUrl != null && _avatarUrl!.trim().isNotEmpty)
+                    ? _avatarUrl!.trim()
+                    : null;
+
+            if (firestoreAvatar.isNotEmpty && _avatarUrl == null) {
+              _avatarUrl =
+                  '$firestoreAvatar?ts=${DateTime.now().millisecondsSinceEpoch}';
+            }
+
+            final String displayAvatar =
+                localAvatar ??
+                    (firestoreAvatar.isNotEmpty
+                        ? firestoreAvatar
+                        : ((user.photoURL?.trim().isNotEmpty ?? false)
+                            ? user.photoURL!.trim()
+                            : ''));
 
             final String photoUrl = displayAvatar;
+
             debugPrint(
-                '[PROFILE] avatar -> local=$_avatarUrl firestore=$firestoreAvatar auth=${user.photoURL}');
+              '[PROFILE] avatar -> local=$_avatarUrl firestore=$firestoreAvatar auth=${user.photoURL}',
+            );
 
             return Scaffold(
               appBar: AppBar(title: const Text('Profilo')),
@@ -295,12 +296,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       children: [
                         CircleAvatar(
                           radius: 54,
-                          backgroundColor: Theme.of(context)
-                              .colorScheme
-                              .surfaceVariant,
-                          backgroundImage: (photoUrl.isNotEmpty)
-                              ? NetworkImage(photoUrl)
-                              : null,
+                          backgroundColor:
+                              Theme.of(context).colorScheme.surfaceVariant,
+                          backgroundImage:
+                              (photoUrl.isNotEmpty) ? NetworkImage(photoUrl) : null,
                           child: (photoUrl.isEmpty)
                               ? const Icon(
                                   Icons.person,
@@ -347,8 +346,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   const Text('Seleziona un’immagine dalla Galleria'),
                 ],
               ),
-              bottomNavigationBar:
-                  const AppNavBar(currentIndex: 4),
+              bottomNavigationBar: const AppNavBar(currentIndex: 4),
             );
           },
         );
