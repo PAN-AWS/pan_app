@@ -260,23 +260,15 @@ class _ProfilePageState extends State<ProfilePage> {
                     ? (data['avatarUrl'] as String).trim()
                     : '';
 
-            final String? localAvatar =
-                (_avatarUrl != null && _avatarUrl!.trim().isNotEmpty)
-                    ? _avatarUrl!.trim()
-                    : null;
-
             if (firestoreAvatar.isNotEmpty && _avatarUrl == null) {
               _avatarUrl =
                   '$firestoreAvatar?ts=${DateTime.now().millisecondsSinceEpoch}';
             }
 
-            final String displayAvatar =
-                localAvatar ??
-                    (firestoreAvatar.isNotEmpty
-                        ? firestoreAvatar
-                        : ((user.photoURL?.trim().isNotEmpty ?? false)
-                            ? user.photoURL!.trim()
-                            : ''));
+            final String displayAvatar = _avatarUrl ??
+                (firestoreAvatar.isNotEmpty
+                    ? firestoreAvatar
+                    : (user.photoURL ?? ''));
 
             final String photoUrl = displayAvatar;
 

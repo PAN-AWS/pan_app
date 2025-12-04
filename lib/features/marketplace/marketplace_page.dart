@@ -223,9 +223,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
                           ? (d['avatarUrl'] as String).trim()
                           : '';
                   final isMe = FirebaseAuth.instance.currentUser?.uid == uid;
-                  final authPhoto = isMe
-                      ? (FirebaseAuth.instance.currentUser?.photoURL?.trim() ?? '')
-                      : '';
+                  final authPhoto = isMe ? (FirebaseAuth.instance.currentUser?.photoURL ?? '') : '';
                   final avatarUrlToShow =
                       (firestoreAvatar.isNotEmpty) ? firestoreAvatar : authPhoto;
                   final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';

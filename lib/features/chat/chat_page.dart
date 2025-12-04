@@ -226,9 +226,7 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
                                   ? (data['avatarUrl'] as String).trim()
                                   : '';
                           final bool isMe = FirebaseAuth.instance.currentUser?.uid == uid;
-                          final authPhoto = isMe
-                              ? (FirebaseAuth.instance.currentUser?.photoURL?.trim() ?? '')
-                              : '';
+                          final authPhoto = isMe ? (FirebaseAuth.instance.currentUser?.photoURL ?? '') : '';
                           final avatarUrlToShow =
                               (firestoreAvatar.isNotEmpty) ? firestoreAvatar : authPhoto;
                           final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
@@ -334,7 +332,7 @@ class _DmList extends StatelessWidget {
       }
 
       if (uid == meUid) {
-        final authPhoto = FirebaseAuth.instance.currentUser?.photoURL?.trim() ?? '';
+        final authPhoto = FirebaseAuth.instance.currentUser?.photoURL ?? '';
         if (authPhoto.isNotEmpty) {
           return {'name': uid, 'role': '', 'avatar': authPhoto};
         }
@@ -412,9 +410,7 @@ class _DmList extends StatelessWidget {
                 final subtitle2 = uSnap.data?['role'] ?? '';
                 final firestoreAvatar = uSnap.data?['avatar'] ?? '';
                 final isMe = FirebaseAuth.instance.currentUser?.uid == otherUid;
-                final authPhoto = isMe
-                    ? (FirebaseAuth.instance.currentUser?.photoURL?.trim() ?? '')
-                    : '';
+                final authPhoto = isMe ? (FirebaseAuth.instance.currentUser?.photoURL ?? '') : '';
                 final avatarUrlToShow =
                     (firestoreAvatar.isNotEmpty) ? firestoreAvatar : authPhoto;
                 final initials = title.isNotEmpty ? title[0].toUpperCase() : '?';
