@@ -28,9 +28,6 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    final user = _auth.currentUser;
-    final authPhoto = user?.photoURL?.trim();
-    _avatarUrl = (authPhoto != null && authPhoto.isNotEmpty) ? authPhoto : null;
   }
 
   Future<void> _pickAndUpload() async {
@@ -265,10 +262,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   '$firestoreAvatar?ts=${DateTime.now().millisecondsSinceEpoch}';
             }
 
-            final String displayAvatar = _avatarUrl ??
-                (firestoreAvatar.isNotEmpty
-                    ? firestoreAvatar
-                    : (user.photoURL ?? ''));
+            final String displayAvatar = _avatarUrl ?? firestoreAvatar;
 
             final String photoUrl = displayAvatar;
 
