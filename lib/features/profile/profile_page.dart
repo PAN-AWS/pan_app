@@ -23,7 +23,6 @@ class _ProfilePageState extends State<ProfilePage> {
   final _picker = ImagePicker();
 
   bool _busy = false;
-  String? _avatarUrl;
 
   @override
   void initState() {
@@ -192,9 +191,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
       await user.reload();
       if (!mounted) return;
-      setState(() {
-        _avatarUrl = '$url?ts=${DateTime.now().millisecondsSinceEpoch}';
-      });
       _snack('Immagine profilo aggiornata.');
     } on FirebaseException catch (e) {
       debugPrint('[PROFILE][FIREBASE-ERROR] code=${e.code} message=${e.message}');
@@ -253,32 +249,12 @@ class _ProfilePageState extends State<ProfilePage> {
           stream: docRef.snapshots(),
           builder: (context, sDoc) {
             final data = (sDoc.data?.data() as Map<String, dynamic>?) ?? {};
-            final String firestoreAvatar =
-                (data['avatarUrl'] is String &&
-                        (data['avatarUrl'] as String).trim().isNotEmpty)
-                    ? (data['avatarUrl'] as String).trim()
-                    : '';
-
-            String? avatarWithTs;
-            if (firestoreAvatar.isNotEmpty) {
-              final ts = data['updatedAt'];
-              final cacheTs = ts is Timestamp
-                  ? ts.millisecondsSinceEpoch
-                  : DateTime.now().millisecondsSinceEpoch;
-              avatarWithTs = '$firestoreAvatar?ts=$cacheTs';
-            }
-
-            if (avatarWithTs != null && _avatarUrl != avatarWithTs) {
-              _avatarUrl = avatarWithTs;
-            }
-
-            final String displayAvatar = _avatarUrl ?? firestoreAvatar;
-
-            final String photoUrl = displayAvatar;
-
-            debugPrint(
-              '[PROFILE] avatar -> local=$_avatarUrl firestore=$firestoreAvatar auth=${user.photoURL}',
-            );
+            final rawAvatar = (data['avatarUrl'] as String?)?.trim() ?? '';
+            final ts = data['updatedAt'] as Timestamp?;
+            final avatarUrlToShow =
+                (rawAvatar.isNotEmpty && ts != null)
+                    ? '$rawAvatar?ts=${ts.millisecondsSinceEpoch}'
+                    : rawAvatar;
 
             return Scaffold(
               appBar: AppBar(title: const Text('Profilo')),
@@ -294,9 +270,10 @@ class _ProfilePageState extends State<ProfilePage> {
                           radius: 54,
                           backgroundColor:
                               Theme.of(context).colorScheme.surfaceVariant,
-                          backgroundImage:
-                              (photoUrl.isNotEmpty) ? NetworkImage(photoUrl) : null,
-                          child: (photoUrl.isEmpty)
+                          backgroundImage: avatarUrlToShow.isNotEmpty
+                              ? NetworkImage(avatarUrlToShow)
+                              : null,
+                          child: avatarUrlToShow.isEmpty
                               ? const Icon(
                                   Icons.person,
                                   size: 48,

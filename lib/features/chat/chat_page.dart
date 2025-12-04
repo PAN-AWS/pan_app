@@ -221,18 +221,12 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
                           final uid = docs[i].id;
                           final name = (data['displayName'] ?? 'Utente') as String;
                           final role = (data['role'] ?? '') as String;
-                          final firestoreAvatarRaw =
-                              (data['avatarUrl'] is String && (data['avatarUrl'] as String).trim().isNotEmpty)
-                                  ? (data['avatarUrl'] as String).trim()
-                                  : '';
-                          final updatedAt = data['updatedAt'];
-                          String avatarUrlToShow = '';
-                          if (firestoreAvatarRaw.isNotEmpty) {
-                            final cacheTs = updatedAt is Timestamp
-                                ? updatedAt.millisecondsSinceEpoch
-                                : DateTime.now().millisecondsSinceEpoch;
-                            avatarUrlToShow = '$firestoreAvatarRaw?ts=$cacheTs';
-                          }
+                          final rawAvatar = (data['avatarUrl'] as String?)?.trim() ?? '';
+                          final ts = data['updatedAt'] as Timestamp?;
+                          final avatarUrlToShow =
+                              (rawAvatar.isNotEmpty && ts != null)
+                                  ? '$rawAvatar?ts=${ts.millisecondsSinceEpoch}'
+                                  : rawAvatar;
                           debugPrint('[CHAT-SEARCH] uid=$uid avatar=$avatarUrlToShow');
                           final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
                           return ListTile(
@@ -315,16 +309,11 @@ class _DmList extends StatelessWidget {
         final u = pub.data() as Map<String, dynamic>;
         final name = (u['displayName'] ?? '').toString();
         final role = (u['role'] ?? '').toString();
-        final ts = u['updatedAt'];
-        String avatar = (u['avatarUrl'] is String && (u['avatarUrl'] as String).trim().isNotEmpty)
-            ? (u['avatarUrl'] as String).trim()
-            : '';
-        if (avatar.isNotEmpty) {
-          final cacheTs = ts is Timestamp
-              ? ts.millisecondsSinceEpoch
-              : DateTime.now().millisecondsSinceEpoch;
-          avatar = '$avatar?ts=$cacheTs';
-        }
+        final rawAvatar = (u['avatarUrl'] as String?)?.trim() ?? '';
+        final ts = u['updatedAt'] as Timestamp?;
+        final avatar = (rawAvatar.isNotEmpty && ts != null)
+            ? '$rawAvatar?ts=${ts.millisecondsSinceEpoch}'
+            : rawAvatar;
         if (name.trim().isNotEmpty) {
           return {'name': name, 'role': role, 'avatar': avatar};
         }
