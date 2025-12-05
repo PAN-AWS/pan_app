@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../app/widgets/app_nav_bar.dart';
+import '../../app/widgets/profile_avatar.dart';
 import '../../utils/sync_status.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -81,10 +82,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
       final Uint8List bytes = await picked.readAsBytes();
 
-      const String targetBucket = 'pan-nativa-progetto.firebasestorage.app';
+      final bucket = Firebase.app().options.storageBucket;
 
-      final FirebaseStorage storage =
-          FirebaseStorage.instanceFor(bucket: targetBucket);
+      final FirebaseStorage storage = (bucket != null && bucket.isNotEmpty)
+          ? FirebaseStorage.instanceFor(bucket: bucket)
+          : FirebaseStorage.instance;
 
       final ref = storage
           .ref()
@@ -244,84 +246,57 @@ class _ProfilePageState extends State<ProfilePage> {
           );
         }
 
-        final docRef = _db.collection('public_profiles').doc(user.uid);
-        return StreamBuilder<DocumentSnapshot>(
-          stream: docRef.snapshots(),
-          builder: (context, sDoc) {
-            final data = (sDoc.data?.data() as Map<String, dynamic>?) ?? {};
-            final rawAvatar = (data['avatarUrl'] as String?)?.trim() ?? '';
-            final ts = data['updatedAt'] as Timestamp?;
-            final avatarUrlToShow =
-                (rawAvatar.isNotEmpty && ts != null)
-                    ? '$rawAvatar?ts=${ts.millisecondsSinceEpoch}'
-                    : rawAvatar;
-
-            return Scaffold(
-              appBar: AppBar(title: const Text('Profilo')),
-              body: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  const SyncStatusPanel(title: 'Controlli online'),
-                  const SizedBox(height: 24),
-                  Center(
-                    child: Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 54,
-                          backgroundColor:
-                              Theme.of(context).colorScheme.surfaceVariant,
-                          backgroundImage: avatarUrlToShow.isNotEmpty
-                              ? NetworkImage(avatarUrlToShow)
-                              : null,
-                          child: avatarUrlToShow.isEmpty
-                              ? const Icon(
-                                  Icons.person,
-                                  size: 48,
-                                )
-                              : null,
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: FloatingActionButton.small(
-                            heroTag: 'edit_photo',
-                            onPressed: _busy ? null : _pickAndUpload,
-                            child: _busy
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.edit),
-                          ),
-                        ),
-                      ],
+        return Scaffold(
+          appBar: AppBar(title: const Text('Profilo')),
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              const SyncStatusPanel(title: 'Controlli online'),
+              const SizedBox(height: 24),
+              Center(
+                child: Stack(
+                  children: [
+                    ProfileAvatar(uid: user.uid, radius: 54),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: FloatingActionButton.small(
+                        heroTag: 'edit_photo',
+                        onPressed: _busy ? null : _pickAndUpload,
+                        child: _busy
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.edit),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Center(
-                    child: Text(
-                      user.email ?? '',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  const Text(
-                    'Modifica immagine profilo',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text('Seleziona un’immagine dalla Galleria'),
-                ],
+                  ],
+                ),
               ),
-              bottomNavigationBar: const AppNavBar(currentIndex: 4),
-            );
-          },
+              const SizedBox(height: 16),
+              Center(
+                child: Text(
+                  user.email ?? '',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              const SizedBox(height: 32),
+              const Text(
+                'Modifica immagine profilo',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text('Seleziona un’immagine dalla Galleria'),
+            ],
+          ),
+          bottomNavigationBar: const AppNavBar(currentIndex: 4),
         );
       },
     );

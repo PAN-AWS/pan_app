@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../app/widgets/profile_avatar.dart';
 import 'chat_room_page.dart';
 import 'group_chat_page.dart';
 import '../marketplace/public_profile_page.dart';
@@ -221,20 +222,8 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
                           final uid = docs[i].id;
                           final name = (data['displayName'] ?? 'Utente') as String;
                           final role = (data['role'] ?? '') as String;
-                          final rawAvatar = (data['avatarUrl'] as String?)?.trim() ?? '';
-                          final ts = data['updatedAt'] as Timestamp?;
-                          final avatarUrlToShow =
-                              (rawAvatar.isNotEmpty && ts != null)
-                                  ? '$rawAvatar?ts=${ts.millisecondsSinceEpoch}'
-                                  : rawAvatar;
-                          debugPrint('[CHAT-SEARCH] uid=$uid avatar=$avatarUrlToShow');
-                          final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
                           return ListTile(
-                            leading: CircleAvatar(
-                              backgroundImage:
-                                  (avatarUrlToShow.isNotEmpty) ? NetworkImage(avatarUrlToShow) : null,
-                              child: (avatarUrlToShow.isEmpty) ? Text(initials) : null,
-                            ),
+                            leading: ProfileAvatar(uid: uid),
                             title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
                             subtitle: Text(role, maxLines: 1, overflow: TextOverflow.ellipsis),
                             onTap: () async {
@@ -309,13 +298,8 @@ class _DmList extends StatelessWidget {
         final u = pub.data() as Map<String, dynamic>;
         final name = (u['displayName'] ?? '').toString();
         final role = (u['role'] ?? '').toString();
-        final rawAvatar = (u['avatarUrl'] as String?)?.trim() ?? '';
-        final ts = u['updatedAt'] as Timestamp?;
-        final avatar = (rawAvatar.isNotEmpty && ts != null)
-            ? '$rawAvatar?ts=${ts.millisecondsSinceEpoch}'
-            : rawAvatar;
         if (name.trim().isNotEmpty) {
-          return {'name': name, 'role': role, 'avatar': avatar};
+          return {'name': name, 'role': role};
         }
       }
 
@@ -328,14 +312,14 @@ class _DmList extends StatelessWidget {
         final role  = (d['role'] ?? '').toString();
         final composed = '$first $last'.trim();
         if (composed.isNotEmpty) {
-          return {'name': composed, 'role': role, 'avatar': ''};
+          return {'name': composed, 'role': role};
         }
       }
 
       // 3) Estremo fallback: UID
-      return {'name': uid, 'role': '', 'avatar': ''};
+      return {'name': uid, 'role': ''};
     } catch (_) {
-      return {'name': uid, 'role': '', 'avatar': ''};
+      return {'name': uid, 'role': ''};
     }
   }
 
@@ -402,9 +386,7 @@ class _DmList extends StatelessWidget {
               builder: (context, uSnap) {
                 final title = uSnap.data?['name'] ?? otherUid;
                 final subtitle2 = uSnap.data?['role'] ?? '';
-                final avatarUrlToShow = uSnap.data?['avatar'] ?? '';
-                final initials = title.isNotEmpty ? title[0].toUpperCase() : '?';
-                debugPrint('[CHAT-DM] otherUid=$otherUid avatar=$avatarUrlToShow');
+                debugPrint('[CHAT-DM] otherUid=$otherUid');
 
                 return ListTile(
                   leading: InkWell(
@@ -417,17 +399,7 @@ class _DmList extends StatelessWidget {
                     child: Stack(
                       alignment: Alignment.bottomRight,
                       children: [
-                        CircleAvatar(
-                          backgroundColor: isSelected
-                              ? Theme.of(context).colorScheme.primaryContainer
-                              : null,
-                          backgroundImage: (avatarUrlToShow.isNotEmpty)
-                              ? NetworkImage(avatarUrlToShow)
-                              : null,
-                          child: (avatarUrlToShow.isEmpty)
-                              ? Text(initials)
-                              : null,
-                        ),
+                        ProfileAvatar(uid: otherUid),
                         if (unread) Positioned(right: 0, bottom: 0, child: _bigUnreadDot(context)),
                       ],
                     ),
