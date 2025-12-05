@@ -32,6 +32,7 @@ class _ProfilePageState extends State<ProfilePage> {
   int _lastEventCount = 0;
   VoidCallback? _statusListener;
   String? _lastDiagnosedUid;
+  String? _lastAvatarBaseUrl;
   int _lastAvatarUpdateTs = 0;
 
   @override
@@ -59,26 +60,22 @@ class _ProfilePageState extends State<ProfilePage> {
 
   FirebaseStorage _storageForConfiguredBucket({bool logWarnings = false}) {
     final bucket = Firebase.app().options.storageBucket;
-    if (bucket != null && bucket.isNotEmpty) {
-      if (logWarnings && kDebugMode && !bucket.endsWith('.appspot.com')) {
+    if (logWarnings) {
+      if (bucket == null || bucket.isEmpty) {
+        SyncStatusController.instance.add(
+          title: 'Bucket guard',
+          message: 'Bucket non configurato, uso default instance',
+          success: false,
+          category: 'avatar',
+        );
+      } else if (kDebugMode && !bucket.endsWith('.appspot.com')) {
         SyncStatusController.instance.add(
           title: 'Bucket guard',
           message: 'Bucket configurato non canonico: $bucket',
-          success: true,
+          success: false,
           category: 'avatar',
         );
       }
-
-      return FirebaseStorage.instanceFor(bucket: bucket);
-    }
-
-    if (logWarnings) {
-      SyncStatusController.instance.add(
-        title: 'Bucket guard',
-        message: 'Bucket non configurato, uso default instance',
-        success: false,
-        category: 'avatar',
-      );
     }
 
     return FirebaseStorage.instance;
@@ -299,6 +296,11 @@ class _ProfilePageState extends State<ProfilePage> {
     _diagnosticRunning = true;
     _lastDiagnosedUid = user.uid;
     try {
+      if (mounted) {
+        setState(() {
+          _lastAvatarBaseUrl = null;
+        });
+      }
       final configuredBucket = Firebase.app().options.storageBucket ?? '(default)';
       final storage = _storageForConfiguredBucket(logWarnings: true);
       final runtimeBucket = storage.bucket;
@@ -337,6 +339,11 @@ class _ProfilePageState extends State<ProfilePage> {
       String? baseUrl;
       try {
         baseUrl = await ref.getDownloadURL();
+        if (mounted) {
+          setState(() {
+            _lastAvatarBaseUrl = baseUrl;
+          });
+        }
         SyncStatusController.instance.add(
           title: 'URL base check',
           message: 'URL ottenuto: $baseUrl',
@@ -383,27 +390,15 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _runUrlChecks({required String label, required String url}) async {
     try {
-      if (kIsWeb) {
-        final uri = Uri.parse(url);
-        final bundle = NetworkAssetBundle(uri);
-        final data = await bundle.load(url);
-        SyncStatusController.instance.add(
-          title: '$label HTTP fetch check',
-          message: 'Scaricati ${data.lengthInBytes} byte (web)',
-          success: true,
-          category: 'avatar',
-        );
-      } else {
-        final uri = Uri.parse(url);
-        final bundle = NetworkAssetBundle(uri);
-        final data = await bundle.load(url);
-        SyncStatusController.instance.add(
-          title: '$label HTTP fetch check',
-          message: 'Scaricati ${data.lengthInBytes} byte',
-          success: true,
-          category: 'avatar',
-        );
-      }
+      final uri = Uri.parse(url);
+      final bundle = NetworkAssetBundle(uri);
+      final data = await bundle.load(url);
+      SyncStatusController.instance.add(
+        title: '$label HTTP fetch check',
+        message: 'Scaricati ${data.lengthInBytes} byte',
+        success: true,
+        category: 'avatar',
+      );
     } catch (e) {
       SyncStatusController.instance.add(
         title: '$label HTTP fetch check',
@@ -518,6 +513,22 @@ class _ProfilePageState extends State<ProfilePage> {
                   ],
                 ),
               ),
+              if (kDebugMode && _lastAvatarBaseUrl != null) ...[
+                const SizedBox(height: 12),
+                SelectableText(
+                  'URL diagnostica: ${_lastAvatarBaseUrl!}',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: 120,
+                  height: 120,
+                  child: Image.network(
+                    _lastAvatarBaseUrl!,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               Center(
                 child: Text(
