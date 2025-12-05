@@ -83,13 +83,25 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
     try {
       final bucket =
           Firebase.apps.isNotEmpty ? Firebase.app().options.storageBucket : null;
-      if (bucket != null && bucket.isNotEmpty) {
+      if (bucket != null && bucket.isNotEmpty && !_isSuspiciousBucket(bucket)) {
         return FirebaseStorage.instanceFor(bucket: bucket);
+      }
+
+      if (bucket != null && bucket.isNotEmpty && _isSuspiciousBucket(bucket)) {
+        debugPrint(
+          '[PROFILE-AVATAR] Bucket configurato sospetto ($bucket), uso default instance',
+        );
       }
     } catch (_) {
       // Fallback handled below
     }
     return FirebaseStorage.instance;
+  }
+
+  bool _isSuspiciousBucket(String bucket) {
+    return bucket.contains('.web.app') ||
+        bucket.contains('.firebaseapp.com') ||
+        bucket.contains('firebasestorage.app');
   }
 
   Future<String?> _loadUrl() async {

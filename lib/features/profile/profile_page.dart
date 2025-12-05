@@ -7,6 +7,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/widgets/app_nav_bar.dart';
 import '../../app/widgets/profile_avatar.dart';
@@ -52,6 +53,30 @@ class _ProfilePageState extends State<ProfilePage> {
       SyncStatusController.instance.events.removeListener(_statusListener!);
     }
     super.dispose();
+  }
+
+  bool _isSuspiciousBucket(String bucket) {
+    return bucket.contains('.web.app') ||
+        bucket.contains('.firebaseapp.com') ||
+        bucket.contains('firebasestorage.app');
+  }
+
+  FirebaseStorage _storageForConfiguredBucket({bool logWarnings = false}) {
+    final bucket = Firebase.app().options.storageBucket;
+    if (bucket != null && bucket.isNotEmpty && !_isSuspiciousBucket(bucket)) {
+      return FirebaseStorage.instanceFor(bucket: bucket);
+    }
+
+    if (logWarnings && bucket != null && bucket.isNotEmpty) {
+      SyncStatusController.instance.add(
+        title: 'Bucket guard',
+        message: 'Bucket configurato sospetto, uso default instance ($bucket)',
+        success: false,
+        category: 'avatar',
+      );
+    }
+
+    return FirebaseStorage.instance;
   }
 
   Future<void> _pickAndUpload() async {
@@ -107,11 +132,7 @@ class _ProfilePageState extends State<ProfilePage> {
       final Uint8List bytes = await picked.readAsBytes();
       final _StandardAvatar avatar = await _standardizeAvatar(bytes);
 
-      final bucket = Firebase.app().options.storageBucket;
-
-      final FirebaseStorage storage = (bucket != null && bucket.isNotEmpty)
-          ? FirebaseStorage.instanceFor(bucket: bucket)
-          : FirebaseStorage.instance;
+      final FirebaseStorage storage = _storageForConfiguredBucket();
 
       final ref = storage
           .ref()
@@ -269,9 +290,7 @@ class _ProfilePageState extends State<ProfilePage> {
     _lastDiagnosedUid = user.uid;
     try {
       final configuredBucket = Firebase.app().options.storageBucket ?? '(default)';
-      final storage = (configuredBucket.isNotEmpty)
-          ? FirebaseStorage.instanceFor(bucket: configuredBucket)
-          : FirebaseStorage.instance;
+      final storage = _storageForConfiguredBucket(logWarnings: true);
       final runtimeBucket = storage.bucket;
       final ref = storage
           .ref()
@@ -305,27 +324,27 @@ class _ProfilePageState extends State<ProfilePage> {
         );
       }
 
-      String? url;
+      String? baseUrl;
       try {
-        url = await ref.getDownloadURL();
+        baseUrl = await ref.getDownloadURL();
         SyncStatusController.instance.add(
-          title: 'URL check',
-          message: 'URL ottenuto: $url',
+          title: 'URL base check',
+          message: 'URL ottenuto: $baseUrl',
           success: true,
           category: 'avatar',
         );
       } on FirebaseException catch (e) {
         SyncStatusController.instance.add(
-          title: 'URL check',
+          title: 'URL base check',
           message: 'Errore: ${e.code}',
           success: false,
           category: 'avatar',
         );
       }
 
-      if (url == null || url.isEmpty) {
+      if (baseUrl == null || baseUrl.isEmpty) {
         SyncStatusController.instance.add(
-          title: 'Precache check',
+          title: 'Precache check (base)',
           message: 'URL non disponibile',
           success: false,
           category: 'avatar',
@@ -333,24 +352,60 @@ class _ProfilePageState extends State<ProfilePage> {
         return;
       }
 
-      try {
-        await precacheImage(NetworkImage(url), context);
-        SyncStatusController.instance.add(
-          title: 'Precache check',
-          message: 'Immagine precaricata con successo',
-          success: true,
-          category: 'avatar',
-        );
-      } catch (e) {
-        SyncStatusController.instance.add(
-          title: 'Precache check',
-          message: 'Errore: $e',
-          success: false,
-          category: 'avatar',
-        );
-      }
+      final baseUri = Uri.parse(baseUrl);
+      final cbUrl = baseUri
+          .replace(queryParameters: {...baseUri.queryParameters, 'cb': DateTime.now().millisecondsSinceEpoch.toString()})
+          .toString();
+
+      SyncStatusController.instance.add(
+        title: 'URL cb check',
+        message: 'URL con cache-buster: $cbUrl',
+        success: true,
+        category: 'avatar',
+      );
+
+      await _runUrlChecks(label: 'URL base', url: baseUrl);
+      await _runUrlChecks(label: 'URL cb', url: cbUrl);
     } finally {
       _diagnosticRunning = false;
+    }
+  }
+
+  Future<void> _runUrlChecks({required String label, required String url}) async {
+    try {
+      final uri = Uri.parse(url);
+      final bundle = NetworkAssetBundle(uri);
+      final data = await bundle.load(url);
+      SyncStatusController.instance.add(
+        title: '$label HTTP fetch check',
+        message: 'Scaricati ${data.lengthInBytes} byte',
+        success: true,
+        category: 'avatar',
+      );
+    } catch (e) {
+      SyncStatusController.instance.add(
+        title: '$label HTTP fetch check',
+        message: 'Errore: $e',
+        success: false,
+        category: 'avatar',
+      );
+    }
+
+    try {
+      await precacheImage(NetworkImage(url), context);
+      SyncStatusController.instance.add(
+        title: '$label precache check',
+        message: 'Immagine precaricata con successo',
+        success: true,
+        category: 'avatar',
+      );
+    } catch (e) {
+      SyncStatusController.instance.add(
+        title: '$label precache check',
+        message: 'Errore: $e',
+        success: false,
+        category: 'avatar',
+      );
     }
   }
 
