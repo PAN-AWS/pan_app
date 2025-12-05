@@ -84,10 +84,7 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
     return FutureBuilder<String?>(
       future: _urlFuture,
       builder: (context, snap) {
-        final baseUrl = snap.data;
-        final effectiveUrl = (baseUrl != null && baseUrl.isNotEmpty)
-            ? '$baseUrl?cb=$_cacheBuster'
-            : null;
+        final effectiveUrl = _buildEffectiveUrl(snap.data);
 
         return CircleAvatar(
           radius: widget.radius,
@@ -97,5 +94,15 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
         );
       },
     );
+  }
+
+  String? _buildEffectiveUrl(String? baseUrl) {
+    if (baseUrl == null || baseUrl.isEmpty) return null;
+
+    final uri = Uri.parse(baseUrl);
+    final query = Map<String, String>.from(uri.queryParameters);
+    query['cb'] = _cacheBuster;
+
+    return uri.replace(queryParameters: query).toString();
   }
 }
