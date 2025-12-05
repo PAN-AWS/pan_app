@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../../app/widgets/profile_avatar.dart';
 import '../marketplace/public_profile_page.dart';
 import '../../app/widgets/app_nav_bar.dart';
 
@@ -217,21 +218,10 @@ class _MarketplacePageState extends State<MarketplacePage> {
                   final provCode = (d['provinceCode'] ?? '-').toString();
                   final provName = (d['provinceName'] ?? '').toString();
                   final prov = provName.isNotEmpty ? '$provName ($provCode)' : provCode;
-                  final rawAvatar = (d['avatarUrl'] as String?)?.trim() ?? '';
-                  final ts = d['updatedAt'] as Timestamp?;
-                  final avatarUrlToShow =
-                      (rawAvatar.isNotEmpty && ts != null)
-                          ? '$rawAvatar?ts=${ts.millisecondsSinceEpoch}'
-                          : rawAvatar;
-                  debugPrint('[MARKETPLACE] uid=$uid avatar=$avatarUrlToShow updatedAt=$ts');
-                  final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
+                  debugPrint('[MARKETPLACE] uid=$uid');
 
                   return ListTile(
-                    leading: CircleAvatar(
-                      backgroundImage:
-                          (avatarUrlToShow.isNotEmpty) ? NetworkImage(avatarUrlToShow) : null,
-                      child: (avatarUrlToShow.isEmpty) ? Text(initials) : null,
-                    ),
+                    leading: ProfileAvatar(uid: uid),
                     title: Text(name.isEmpty ? '-' : name),
                     subtitle: Text('$role • $prov'), // niente email
                     onTap: () {

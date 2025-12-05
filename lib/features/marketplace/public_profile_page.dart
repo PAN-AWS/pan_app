@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../app/widgets/profile_avatar.dart';
 import '../chat/chat_room_page.dart';
 
 class PublicProfilePage extends StatelessWidget {
@@ -41,26 +42,14 @@ class PublicProfilePage extends StatelessWidget {
               ? '${d['provinceName']} (${d['provinceCode'] ?? ''})'
               : (d['provinceCode']?.toString() ?? '-');
           final products = (d['products'] as List?)?.cast<String>() ?? const <String>[];
-          final rawAvatar = (d['avatarUrl'] as String?)?.trim() ?? '';
-          final ts = d['updatedAt'] as Timestamp?;
-          final avatarUrlToShow =
-              (rawAvatar.isNotEmpty && ts != null)
-                  ? '$rawAvatar?ts=${ts.millisecondsSinceEpoch}'
-                  : rawAvatar;
-          debugPrint('[PUBLIC-PROFILE] uid=$uid avatar=$avatarUrlToShow updatedAt=$ts');
-          final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
+          debugPrint('[PUBLIC-PROFILE] uid=$uid');
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundImage:
-                        (avatarUrlToShow.isNotEmpty) ? NetworkImage(avatarUrlToShow) : null,
-                    child: (avatarUrlToShow.isEmpty) ? Text(initials) : null,
-                  ),
+                  ProfileAvatar(uid: uid, radius: 28),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
