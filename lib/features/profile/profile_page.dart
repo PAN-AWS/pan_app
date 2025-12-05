@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
@@ -31,6 +32,7 @@ class _ProfilePageState extends State<ProfilePage> {
   int _lastEventCount = 0;
   VoidCallback? _statusListener;
   String? _lastDiagnosedUid;
+  int _lastAvatarUpdateTs = 0;
 
   @override
   void initState() {
@@ -55,22 +57,25 @@ class _ProfilePageState extends State<ProfilePage> {
     super.dispose();
   }
 
-  bool _isSuspiciousBucket(String bucket) {
-    return bucket.contains('.web.app') ||
-        bucket.contains('.firebaseapp.com') ||
-        bucket.contains('firebasestorage.app');
-  }
-
   FirebaseStorage _storageForConfiguredBucket({bool logWarnings = false}) {
     final bucket = Firebase.app().options.storageBucket;
-    if (bucket != null && bucket.isNotEmpty && !_isSuspiciousBucket(bucket)) {
+    if (bucket != null && bucket.isNotEmpty) {
+      if (logWarnings && kDebugMode && !bucket.endsWith('.appspot.com')) {
+        SyncStatusController.instance.add(
+          title: 'Bucket guard',
+          message: 'Bucket configurato non canonico: $bucket',
+          success: true,
+          category: 'avatar',
+        );
+      }
+
       return FirebaseStorage.instanceFor(bucket: bucket);
     }
 
-    if (logWarnings && bucket != null && bucket.isNotEmpty) {
+    if (logWarnings) {
       SyncStatusController.instance.add(
         title: 'Bucket guard',
-        message: 'Bucket configurato sospetto, uso default instance ($bucket)',
+        message: 'Bucket non configurato, uso default instance',
         success: false,
         category: 'avatar',
       );
@@ -232,6 +237,11 @@ class _ProfilePageState extends State<ProfilePage> {
       );
 
       ProfileAvatar.invalidate(user.uid);
+      if (mounted) {
+        setState(() {
+          _lastAvatarUpdateTs = DateTime.now().millisecondsSinceEpoch;
+        });
+      }
 
       await _runAvatarDiagnostics(user);
 
@@ -373,15 +383,27 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _runUrlChecks({required String label, required String url}) async {
     try {
-      final uri = Uri.parse(url);
-      final bundle = NetworkAssetBundle(uri);
-      final data = await bundle.load(url);
-      SyncStatusController.instance.add(
-        title: '$label HTTP fetch check',
-        message: 'Scaricati ${data.lengthInBytes} byte',
-        success: true,
-        category: 'avatar',
-      );
+      if (kIsWeb) {
+        final uri = Uri.parse(url);
+        final bundle = NetworkAssetBundle(uri);
+        final data = await bundle.load(url);
+        SyncStatusController.instance.add(
+          title: '$label HTTP fetch check',
+          message: 'Scaricati ${data.lengthInBytes} byte (web)',
+          success: true,
+          category: 'avatar',
+        );
+      } else {
+        final uri = Uri.parse(url);
+        final bundle = NetworkAssetBundle(uri);
+        final data = await bundle.load(url);
+        SyncStatusController.instance.add(
+          title: '$label HTTP fetch check',
+          message: 'Scaricati ${data.lengthInBytes} byte',
+          success: true,
+          category: 'avatar',
+        );
+      }
     } catch (e) {
       SyncStatusController.instance.add(
         title: '$label HTTP fetch check',
@@ -471,7 +493,11 @@ class _ProfilePageState extends State<ProfilePage> {
               Center(
                 child: Stack(
                   children: [
-                    ProfileAvatar(uid: user.uid, radius: 54),
+                    ProfileAvatar(
+                      key: ValueKey('avatar-${user.uid}-${_lastAvatarUpdateTs}'),
+                      uid: user.uid,
+                      radius: 54,
+                    ),
                     Positioned(
                       bottom: 0,
                       right: 0,
