@@ -94,7 +94,7 @@ class _ProfilePageState extends State<ProfilePage> {
           .ref()
           .child('public_profiles')
           .child(user.uid)
-          .child('avatar.${avatar.extension}');
+          .child('avatar.jpg');
 
       final metadata = SettableMetadata(contentType: avatar.contentType);
 
@@ -236,7 +236,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final image = frame.image;
 
     final byteData = await image.toByteData(
-      format: ui.ImageByteFormat.png,
+      format: ui.ImageByteFormat.jpeg,
     );
 
     image.dispose();
@@ -248,8 +248,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
     return _StandardAvatar(
       bytes: byteData.buffer.asUint8List(),
-      contentType: 'image/png',
-      extension: 'png',
+      contentType: 'image/jpeg',
+      extension: 'jpg',
     );
   }
 

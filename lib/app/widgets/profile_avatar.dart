@@ -22,8 +22,8 @@ class ProfileAvatar extends StatefulWidget {
 
 class _ProfileAvatarState extends State<ProfileAvatar> {
   static const _pathRoot = 'public_profiles';
+  static const _fileName = 'avatar.jpg';
   static const _refreshInterval = Duration(seconds: 30);
-  static const _standardExtension = 'png';
 
   static final StreamController<String> _invalidationController =
       StreamController<String>.broadcast();
@@ -31,7 +31,10 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
   late Future<String?> _urlFuture;
   Timer? _refreshTimer;
   StreamSubscription<String>? _invalidateSub;
-  String _cacheBuster = DateTime.now().millisecondsSinceEpoch.toString();
+  String _cacheBuster = _nowCacheBuster();
+
+  static String _nowCacheBuster() =>
+      DateTime.now().millisecondsSinceEpoch.toString();
 
   static void invalidate(String uid) {
     if (!_invalidationController.isClosed) {
@@ -59,7 +62,7 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
     _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(_refreshInterval, (_) {
       setState(() {
-        _cacheBuster = DateTime.now().millisecondsSinceEpoch.toString();
+        _cacheBuster = _nowCacheBuster();
         _urlFuture = _loadUrl();
       });
     });
@@ -70,7 +73,7 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
     _invalidateSub = _invalidationController.stream.listen((uid) {
       if (uid != widget.uid) return;
       setState(() {
-        _cacheBuster = DateTime.now().millisecondsSinceEpoch.toString();
+        _cacheBuster = _nowCacheBuster();
         _urlFuture = _loadUrl();
       });
     });
@@ -92,54 +95,22 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
   Future<String?> _loadUrl() async {
     try {
       final storage = await _storageForConfiguredBucket();
-      final baseRef = storage.ref().child(_pathRoot).child(widget.uid);
+      final ref = storage
+          .ref()
+          .child(_pathRoot)
+          .child(widget.uid)
+          .child(_fileName);
 
-      final attempts = _buildAttemptList();
-      for (final ext in attempts) {
-        try {
-          final url = await baseRef.child('avatar.$ext').getDownloadURL();
-          return url;
-        } on FirebaseException catch (e) {
-          if (e.code != 'object-not-found') {
-            debugPrint('[PROFILE-AVATAR] download error: ${e.code} - ${e.message}');
-          }
-        }
+      return await ref.getDownloadURL();
+    } on FirebaseException catch (e) {
+      if (e.code != 'object-not-found') {
+        debugPrint('[PROFILE-AVATAR] download error: ${e.code} - ${e.message}');
       }
-
-      final list = await baseRef.listAll();
-      for (final item in list.items) {
-        if (_looksLikeImage(item.name)) {
-          try {
-            return await item.getDownloadURL();
-          } on FirebaseException catch (e) {
-            debugPrint('[PROFILE-AVATAR] list download error: ${e.code}');
-          }
-        }
-      }
+      return null;
     } catch (e) {
       debugPrint('[PROFILE-AVATAR] generic error: $e');
       return null;
     }
-    return null;
-  }
-
-  List<String> _buildAttemptList() {
-    final seen = <String>{};
-    final ordered = [_standardExtension, 'jpg', 'jpeg', 'png'];
-    final result = <String>[];
-    for (final ext in ordered) {
-      if (seen.add(ext)) result.add(ext);
-    }
-    return result;
-  }
-
-  bool _looksLikeImage(String name) {
-    final lower = name.toLowerCase();
-    return lower.endsWith('.jpg') ||
-        lower.endsWith('.jpeg') ||
-        lower.endsWith('.png') ||
-        lower.endsWith('.gif') ||
-        lower.endsWith('.webp');
   }
 
   @override
@@ -156,20 +127,33 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
       builder: (context, snap) {
         final effectiveUrl = _buildEffectiveUrl(snap.data);
 
-        return CircleAvatar(
-          radius: widget.radius,
-          backgroundColor: Colors.grey.shade800,
-          foregroundImage:
-              effectiveUrl != null ? NetworkImage(effectiveUrl) : null,
-          child: effectiveUrl == null
-              ? Icon(
-                  Icons.person,
-                  size: widget.radius,
-                  color: Colors.white,
-                )
-              : null,
+        return ClipOval(
+          child: Container(
+            width: widget.radius * 2,
+            height: widget.radius * 2,
+            color: Colors.grey.shade800,
+            child: effectiveUrl == null
+                ? _buildPlaceholder()
+                : Image.network(
+                    effectiveUrl,
+                    key: ValueKey(effectiveUrl),
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
+                    errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                  ),
+          ),
         );
       },
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return Center(
+      child: Icon(
+        Icons.person,
+        size: widget.radius,
+        color: Colors.white,
+      ),
     );
   }
 
