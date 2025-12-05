@@ -82,10 +82,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
       final Uint8List bytes = await picked.readAsBytes();
 
-      const String targetBucket = 'pan-nativa-progetto.firebasestorage.app';
+      final bucket = Firebase.app().options.storageBucket;
 
-      final FirebaseStorage storage =
-          FirebaseStorage.instanceFor(bucket: targetBucket);
+      final FirebaseStorage storage = (bucket != null && bucket.isNotEmpty)
+          ? FirebaseStorage.instanceFor(bucket: bucket)
+          : FirebaseStorage.instance;
 
       final ref = storage
           .ref()
