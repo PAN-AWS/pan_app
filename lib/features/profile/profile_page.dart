@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -81,6 +82,7 @@ class _ProfilePageState extends State<ProfilePage> {
       );
 
       final Uint8List bytes = await picked.readAsBytes();
+      final _StandardAvatar avatar = await _standardizeAvatar(bytes);
 
       final bucket = Firebase.app().options.storageBucket;
 
@@ -92,17 +94,16 @@ class _ProfilePageState extends State<ProfilePage> {
           .ref()
           .child('public_profiles')
           .child(user.uid)
-          .child('avatar.jpg');
+          .child('avatar.${avatar.extension}');
 
-      final metadata =
-          SettableMetadata(contentType: _inferContentType(picked.name));
+      final metadata = SettableMetadata(contentType: avatar.contentType);
 
       final configuredBucket = Firebase.app().options.storageBucket;
       debugPrint('[PROFILE] storage bucket configured=$configuredBucket');
       debugPrint('[AVATAR] storage bucket=${storage.bucket}');
       debugPrint(
         '[PROFILE] upload to ${ref.fullPath} '
-        'contentType=${metadata.contentType} size=${bytes.lengthInBytes}',
+        'contentType=${metadata.contentType} size=${avatar.bytes.lengthInBytes}',
       );
 
       SyncStatusController.instance.add(
@@ -116,7 +117,7 @@ class _ProfilePageState extends State<ProfilePage> {
         debugPrint('Upload avatar: inizio');
         debugPrint('Upload avatar: bucket=${ref.bucket} path=${ref.fullPath}');
 
-        final task = ref.putData(bytes, metadata);
+        final task = ref.putData(avatar.bytes, metadata);
 
         task.snapshotEvents.listen(
           (s) {
@@ -191,6 +192,8 @@ class _ProfilePageState extends State<ProfilePage> {
         category: 'storage',
       );
 
+      ProfileAvatar.invalidate(user.uid);
+
       await user.reload();
       if (!mounted) return;
       _snack('Immagine profilo aggiornata.');
@@ -225,6 +228,29 @@ class _ProfilePageState extends State<ProfilePage> {
   void _snack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<_StandardAvatar> _standardizeAvatar(Uint8List source) async {
+    final codec = await ui.instantiateImageCodec(source);
+    final frame = await codec.getNextFrame();
+    final image = frame.image;
+
+    final byteData = await image.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+
+    image.dispose();
+    codec.dispose();
+
+    if (byteData == null) {
+      throw Exception('Impossibile convertire l\'immagine');
+    }
+
+    return _StandardAvatar(
+      bytes: byteData.buffer.asUint8List(),
+      contentType: 'image/png',
+      extension: 'png',
+    );
   }
 
   @override
@@ -303,12 +329,14 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
-String _inferContentType(String fileName) {
-  final lower = fileName.toLowerCase();
-  if (lower.endsWith('.png')) return 'image/png';
-  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
-    return 'image/jpeg';
-  }
-  if (lower.endsWith('.gif')) return 'image/gif';
-  return 'application/octet-stream';
+class _StandardAvatar {
+  final Uint8List bytes;
+  final String contentType;
+  final String extension;
+
+  const _StandardAvatar({
+    required this.bytes,
+    required this.contentType,
+    required this.extension,
+  });
 }
