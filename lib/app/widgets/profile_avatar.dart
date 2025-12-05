@@ -93,6 +93,7 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
   }
 
   Future<String?> _loadUrl() async {
+    debugPrint('[PROFILE-AVATAR] _loadUrl start uid=${widget.uid}');
     final storage = await _storageForConfiguredBucket();
     for (final candidate in _fileCandidates) {
       try {
@@ -102,6 +103,7 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
             .child(widget.uid)
             .child(candidate);
         final url = await ref.getDownloadURL();
+        debugPrint('[PROFILE-AVATAR] found url for ${widget.uid}: $url');
         return url;
       } on FirebaseException catch (e) {
         if (e.code != 'object-not-found') {
@@ -113,6 +115,7 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
         break;
       }
     }
+    debugPrint('[PROFILE-AVATAR] no avatar found for ${widget.uid}');
     return null;
   }
 

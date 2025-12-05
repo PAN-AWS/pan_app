@@ -25,10 +25,33 @@ class _ProfilePageState extends State<ProfilePage> {
   final _picker = ImagePicker();
 
   bool _busy = false;
+  bool _ranInitialDiagnostics = false;
+  bool _diagnosticRunning = false;
+  int _lastEventCount = 0;
+  VoidCallback? _statusListener;
+  String? _lastDiagnosedUid;
 
   @override
   void initState() {
     super.initState();
+    _lastEventCount = SyncStatusController.instance.events.value.length;
+    _statusListener = () {
+      final currentCount = SyncStatusController.instance.events.value.length;
+      final user = _auth.currentUser;
+      if (user != null && _lastEventCount > 0 && currentCount == 0) {
+        _runAvatarDiagnostics(user);
+      }
+      _lastEventCount = currentCount;
+    };
+    SyncStatusController.instance.events.addListener(_statusListener!);
+  }
+
+  @override
+  void dispose() {
+    if (_statusListener != null) {
+      SyncStatusController.instance.events.removeListener(_statusListener!);
+    }
+    super.dispose();
   }
 
   Future<void> _pickAndUpload() async {
@@ -189,6 +212,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
       ProfileAvatar.invalidate(user.uid);
 
+      await _runAvatarDiagnostics(user);
+
       await user.reload();
       if (!mounted) return;
       _snack('Immagine profilo aggiornata.');
@@ -238,6 +263,97 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Future<void> _runAvatarDiagnostics(User user) async {
+    if (_diagnosticRunning) return;
+    _diagnosticRunning = true;
+    _lastDiagnosedUid = user.uid;
+    try {
+      final configuredBucket = Firebase.app().options.storageBucket ?? '(default)';
+      final storage = (configuredBucket.isNotEmpty)
+          ? FirebaseStorage.instanceFor(bucket: configuredBucket)
+          : FirebaseStorage.instance;
+      final runtimeBucket = storage.bucket;
+      final ref = storage
+          .ref()
+          .child('public_profiles')
+          .child(user.uid)
+          .child('avatar.jpg');
+
+      SyncStatusController.instance.add(
+        title: 'Avatar check (storage)',
+        message:
+            'Bucket configurato: $configuredBucket | runtime: $runtimeBucket | path: ${ref.fullPath}',
+        success: true,
+        category: 'avatar',
+      );
+
+      try {
+        final metadata = await ref.getMetadata();
+        SyncStatusController.instance.add(
+          title: 'Metadata check',
+          message:
+              'contentType=${metadata.contentType ?? 'n/d'} size=${metadata.size ?? 0}',
+          success: true,
+          category: 'avatar',
+        );
+      } on FirebaseException catch (e) {
+        SyncStatusController.instance.add(
+          title: 'Metadata check',
+          message: 'Errore: ${e.code}',
+          success: false,
+          category: 'avatar',
+        );
+      }
+
+      String? url;
+      try {
+        url = await ref.getDownloadURL();
+        SyncStatusController.instance.add(
+          title: 'URL check',
+          message: 'URL ottenuto: $url',
+          success: true,
+          category: 'avatar',
+        );
+      } on FirebaseException catch (e) {
+        SyncStatusController.instance.add(
+          title: 'URL check',
+          message: 'Errore: ${e.code}',
+          success: false,
+          category: 'avatar',
+        );
+      }
+
+      if (url == null || url.isEmpty) {
+        SyncStatusController.instance.add(
+          title: 'Precache check',
+          message: 'URL non disponibile',
+          success: false,
+          category: 'avatar',
+        );
+        return;
+      }
+
+      try {
+        await precacheImage(NetworkImage(url), context);
+        SyncStatusController.instance.add(
+          title: 'Precache check',
+          message: 'Immagine precaricata con successo',
+          success: true,
+          category: 'avatar',
+        );
+      } catch (e) {
+        SyncStatusController.instance.add(
+          title: 'Precache check',
+          message: 'Errore: $e',
+          success: false,
+          category: 'avatar',
+        );
+      }
+    } finally {
+      _diagnosticRunning = false;
+    }
+  }
+
   Future<void> _cleanupLegacyAvatars({
     required FirebaseStorage storage,
     required String uid,
@@ -277,6 +393,17 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             bottomNavigationBar: const AppNavBar(currentIndex: 4),
           );
+        }
+
+        if (!_ranInitialDiagnostics || _lastDiagnosedUid != user.uid) {
+          _ranInitialDiagnostics = true;
+          _lastDiagnosedUid = user.uid;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final currentUser = _auth.currentUser;
+            if (currentUser != null && mounted) {
+              _runAvatarDiagnostics(currentUser);
+            }
+          });
         }
 
         return Scaffold(
