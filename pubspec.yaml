@@ -24,6 +24,7 @@ dependencies:
   geocoding:
   url_launcher:
   image_picker:
+  image:
   intl:
 
 dev_dependencies:

@@ -128,6 +128,10 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
     return FutureBuilder<String?>(
       future: _urlFuture,
       builder: (context, snap) {
+        if (snap.hasError) {
+          debugPrint('[PROFILE-AVATAR] load error: ${snap.error}');
+        }
+
         final effectiveUrl = _buildEffectiveUrl(snap.data);
 
         return ClipOval(
