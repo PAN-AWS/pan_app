@@ -94,9 +94,9 @@ class _ProfilePageState extends State<ProfilePage> {
           .ref()
           .child('public_profiles')
           .child(user.uid)
-          .child('avatar.jpg');
+          .child('avatar.png');
 
-      final metadata = const SettableMetadata(contentType: 'image/jpeg');
+      final metadata = SettableMetadata(contentType: 'image/png');
 
       debugPrint('[AVATAR] storage bucket=${storage.bucket}');
       debugPrint(
@@ -229,7 +229,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final image = frame.image;
 
     final byteData = await image.toByteData(
-      format: ui.ImageByteFormat.jpeg,
+      format: ui.ImageByteFormat.png,
     );
 
     image.dispose();
