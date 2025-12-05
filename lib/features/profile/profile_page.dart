@@ -27,10 +27,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final _picker = ImagePicker();
 
   bool _busy = false;
-  bool _ranInitialDiagnostics = false;
   bool _diagnosticRunning = false;
-  int _lastEventCount = 0;
-  VoidCallback? _statusListener;
   String? _lastDiagnosedUid;
   String? _lastAvatarBaseUrl;
   int _lastAvatarUpdateTs = 0;
@@ -38,23 +35,10 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    _lastEventCount = SyncStatusController.instance.events.value.length;
-    _statusListener = () {
-      final currentCount = SyncStatusController.instance.events.value.length;
-      final user = _auth.currentUser;
-      if (user != null && _lastEventCount > 0 && currentCount == 0) {
-        _runAvatarDiagnostics(user);
-      }
-      _lastEventCount = currentCount;
-    };
-    SyncStatusController.instance.events.addListener(_statusListener!);
   }
 
   @override
   void dispose() {
-    if (_statusListener != null) {
-      SyncStatusController.instance.events.removeListener(_statusListener!);
-    }
     super.dispose();
   }
 
@@ -174,20 +158,12 @@ class _ProfilePageState extends State<ProfilePage> {
           },
         );
 
-        await task.whenComplete(() => null);
-        debugPrint('Upload avatar: COMPLETATO');
-
-        SyncStatusController.instance.add(
-          title: 'Upload immagine',
-          message: 'Upload completato',
-          success: true,
-          category: 'storage',
-        );
+        await task;
       } on FirebaseException catch (e) {
         debugPrint('ERRORE UPLOAD AVATAR: ${e.code} - ${e.message}');
         SyncStatusController.instance.add(
           title: 'Upload immagine',
-          message: 'Errore upload: ${e.code} (bucket ${ref.bucket})',
+          message: 'Errore upload: ${e.code} - ${e.message ?? ''}',
           success: false,
           category: 'storage',
         );
@@ -195,6 +171,15 @@ class _ProfilePageState extends State<ProfilePage> {
       }
 
       await _cleanupLegacyAvatars(storage: storage, uid: user.uid);
+
+      debugPrint('Upload avatar: COMPLETATO');
+
+      SyncStatusController.instance.add(
+        title: 'Upload avatar: COMPLETATO',
+        message: 'Upload riuscito su ${ref.fullPath}',
+        success: true,
+        category: 'storage',
+      );
 
       final url = await ref.getDownloadURL();
       debugPrint('[PROFILE] got URL: $url');
@@ -251,7 +236,7 @@ class _ProfilePageState extends State<ProfilePage> {
               e.code == 'unauthorized')
           ? 'Autorizzazione negata: verifica che le regole Firebase permettano a ${_auth.currentUser?.uid} '
               'di scrivere in public_profiles/${_auth.currentUser?.uid}.'
-          : (e.message ?? e.code);
+          : '${e.code}: ${e.message ?? e.code}';
       _snack('Errore Firebase: $hint');
       SyncStatusController.instance.add(
         title: 'Upload immagine',
@@ -467,23 +452,30 @@ class _ProfilePageState extends State<ProfilePage> {
           );
         }
 
-        if (!_ranInitialDiagnostics || _lastDiagnosedUid != user.uid) {
-          _ranInitialDiagnostics = true;
-          _lastDiagnosedUid = user.uid;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            final currentUser = _auth.currentUser;
-            if (currentUser != null && mounted) {
-              _runAvatarDiagnostics(currentUser);
-            }
-          });
-        }
-
         return Scaffold(
           appBar: AppBar(title: const Text('Profilo')),
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              const SyncStatusPanel(title: 'Controlli online'),
+              Row(
+                children: [
+                  const Expanded(
+                    child: SyncStatusPanel(title: 'Controlli online'),
+                  ),
+                  IconButton(
+                    tooltip: 'Aggiorna diagnostica avatar',
+                    onPressed: _busy
+                        ? null
+                        : () {
+                            final currentUser = _auth.currentUser;
+                            if (currentUser != null) {
+                              _runAvatarDiagnostics(currentUser);
+                            }
+                          },
+                    icon: const Icon(Icons.refresh),
+                  ),
+                ],
+              ),
               const SizedBox(height: 24),
               Center(
                 child: Stack(
