@@ -55,7 +55,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1032026251158',
     projectId: 'pan-nativa-progetto',
     authDomain: 'pan-nativa-progetto.firebaseapp.com',
-    storageBucket: 'pan-nativa-progetto.firebasestorage.app',
+    storageBucket: 'pan-nativa-progetto.appspot.com',
     measurementId: 'G-J7MSMZRLN2',
   );
 
@@ -64,6 +64,6 @@ class DefaultFirebaseOptions {
     appId: '1:1032026251158:android:8d69a1f50be20802f7c7b7',
     messagingSenderId: '1032026251158',
     projectId: 'pan-nativa-progetto',
-    storageBucket: 'pan-nativa-progetto.firebasestorage.app',
+    storageBucket: 'pan-nativa-progetto.appspot.com',
   );
 }

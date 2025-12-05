@@ -80,28 +80,15 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
     });
   }
 
-  Future<FirebaseStorage> _storageForConfiguredBucket() async {
-    try {
-      final bucket =
-          Firebase.apps.isNotEmpty ? Firebase.app().options.storageBucket : null;
-      if (bucket != null && bucket.isNotEmpty) {
-        if (kDebugMode && !bucket.endsWith('.appspot.com')) {
-          debugPrint(
-            '[PROFILE-AVATAR] Bucket configurato non canonico ($bucket), uso instanceFor',
-          );
-        }
-
-        return FirebaseStorage.instanceFor(bucket: bucket);
-      }
-    } catch (_) {
-      // Fallback handled below
-    }
-    return FirebaseStorage.instance;
-  }
-
   Future<String?> _loadUrl() async {
     debugPrint('[PROFILE-AVATAR] _loadUrl start uid=${widget.uid}');
-    final storage = await _storageForConfiguredBucket();
+    final bucket = Firebase.apps.isNotEmpty
+        ? Firebase.app().options.storageBucket
+        : null;
+    if (kDebugMode && bucket != null && bucket.isNotEmpty) {
+      debugPrint('[PROFILE-AVATAR] runtime bucket=$bucket');
+    }
+    final storage = FirebaseStorage.instance;
     for (final candidate in _fileCandidates) {
       try {
         final ref = storage
