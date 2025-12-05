@@ -1,11 +1,11 @@
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
 import '../../app/widgets/app_nav_bar.dart';
@@ -94,9 +94,9 @@ class _ProfilePageState extends State<ProfilePage> {
           .ref()
           .child('public_profiles')
           .child(user.uid)
-          .child('avatar.png');
+          .child('avatar.jpg');
 
-      final metadata = SettableMetadata(contentType: 'image/png');
+      final metadata = SettableMetadata(contentType: 'image/jpeg');
 
       debugPrint('[AVATAR] storage bucket=${storage.bucket}');
       debugPrint(
@@ -147,6 +147,8 @@ class _ProfilePageState extends State<ProfilePage> {
         );
         rethrow;
       }
+
+      await _cleanupLegacyAvatars(storage: storage, uid: user.uid);
 
       final url = await ref.getDownloadURL();
       debugPrint('[PROFILE] got URL: $url');
@@ -224,24 +226,38 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<_StandardAvatar> _standardizeAvatar(Uint8List source) async {
-    final codec = await ui.instantiateImageCodec(source);
-    final frame = await codec.getNextFrame();
-    final image = frame.image;
-
-    final byteData = await image.toByteData(
-      format: ui.ImageByteFormat.png,
-    );
-
-    image.dispose();
-    codec.dispose();
-
-    if (byteData == null) {
+    final decoded = img.decodeImage(source);
+    if (decoded == null) {
       throw Exception('Impossibile convertire l\'immagine');
     }
 
+    final jpegBytes = img.encodeJpg(decoded, quality: 88);
+
     return _StandardAvatar(
-      bytes: byteData.buffer.asUint8List(),
+      bytes: Uint8List.fromList(jpegBytes),
     );
+  }
+
+  Future<void> _cleanupLegacyAvatars({
+    required FirebaseStorage storage,
+    required String uid,
+  }) async {
+    final legacyNames = ['avatar.png', 'avatar.jpeg', 'avatar.webp'];
+
+    for (final name in legacyNames) {
+      final legacyRef = storage.ref().child('public_profiles').child(uid).child(name);
+
+      try {
+        await legacyRef.delete();
+        debugPrint('[AVATAR] legacy removed: ${legacyRef.fullPath}');
+      } on FirebaseException catch (e) {
+        if (e.code != 'object-not-found') {
+          debugPrint('[AVATAR] cleanup error ${e.code}: ${e.message}');
+        }
+      } catch (e) {
+        debugPrint('[AVATAR] cleanup generic error: $e');
+      }
+    }
   }
 
   @override
