@@ -22,7 +22,7 @@ class ProfileAvatar extends StatefulWidget {
 
 class _ProfileAvatarState extends State<ProfileAvatar> {
   static const _pathRoot = 'public_profiles';
-  static const _fileName = 'avatar.jpg';
+  static const _fileCandidates = ['avatar.jpg', 'avatar.jpeg', 'avatar.png'];
   static const _refreshInterval = Duration(seconds: 30);
 
   static final StreamController<String> _invalidationController =
@@ -93,24 +93,27 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
   }
 
   Future<String?> _loadUrl() async {
-    try {
-      final storage = await _storageForConfiguredBucket();
-      final ref = storage
-          .ref()
-          .child(_pathRoot)
-          .child(widget.uid)
-          .child(_fileName);
-
-      return await ref.getDownloadURL();
-    } on FirebaseException catch (e) {
-      if (e.code != 'object-not-found') {
-        debugPrint('[PROFILE-AVATAR] download error: ${e.code} - ${e.message}');
+    final storage = await _storageForConfiguredBucket();
+    for (final candidate in _fileCandidates) {
+      try {
+        final ref = storage
+            .ref()
+            .child(_pathRoot)
+            .child(widget.uid)
+            .child(candidate);
+        final url = await ref.getDownloadURL();
+        return url;
+      } on FirebaseException catch (e) {
+        if (e.code != 'object-not-found') {
+          debugPrint('[PROFILE-AVATAR] download error: ${e.code} - ${e.message}');
+          break;
+        }
+      } catch (e) {
+        debugPrint('[PROFILE-AVATAR] generic error: $e');
+        break;
       }
-      return null;
-    } catch (e) {
-      debugPrint('[PROFILE-AVATAR] generic error: $e');
-      return null;
     }
+    return null;
   }
 
   @override
