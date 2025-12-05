@@ -23,8 +23,8 @@ class ProfileAvatar extends StatefulWidget {
 
 class _ProfileAvatarState extends State<ProfileAvatar> {
   static const _pathRoot = 'public_profiles';
-  static const _fileCandidates = ['avatar.jpg', 'avatar.jpeg', 'avatar.png'];
-  static const _refreshInterval = Duration(seconds: 30);
+  static const _fileName = 'avatar.jpg';
+  static const _refreshInterval = Duration(minutes: 5);
 
   static final StreamController<String> _invalidationController =
       StreamController<String>.broadcast();
@@ -47,7 +47,9 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
   void initState() {
     super.initState();
     _urlFuture = _loadUrl();
-    _startTimer();
+    if (!kIsWeb) {
+      _startTimer();
+    }
     _listenInvalidations();
   }
 
@@ -89,25 +91,21 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
       debugPrint('[PROFILE-AVATAR] runtime bucket=$bucket');
     }
     final storage = FirebaseStorage.instance;
-    for (final candidate in _fileCandidates) {
-      try {
-        final ref = storage
-            .ref()
-            .child(_pathRoot)
-            .child(widget.uid)
-            .child(candidate);
-        final url = await ref.getDownloadURL();
-        debugPrint('[PROFILE-AVATAR] found url for ${widget.uid}: $url');
-        return url;
-      } on FirebaseException catch (e) {
-        if (e.code != 'object-not-found') {
-          debugPrint('[PROFILE-AVATAR] download error: ${e.code} - ${e.message}');
-          break;
-        }
-      } catch (e) {
-        debugPrint('[PROFILE-AVATAR] generic error: $e');
-        break;
+    try {
+      final ref = storage
+          .ref()
+          .child(_pathRoot)
+          .child(widget.uid)
+          .child(_fileName);
+      final url = await ref.getDownloadURL();
+      debugPrint('[PROFILE-AVATAR] found url for ${widget.uid}: $url');
+      return url;
+    } on FirebaseException catch (e) {
+      if (e.code != 'object-not-found') {
+        debugPrint('[PROFILE-AVATAR] download error: ${e.code} - ${e.message}');
       }
+    } catch (e) {
+      debugPrint('[PROFILE-AVATAR] generic error: $e');
     }
     debugPrint('[PROFILE-AVATAR] no avatar found for ${widget.uid}');
     return null;
