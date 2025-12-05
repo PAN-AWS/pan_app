@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 
@@ -17,6 +16,7 @@ class ProfileAvatar extends StatefulWidget {
 }
 
 class _ProfileAvatarState extends State<ProfileAvatar> {
+  static const _bucket = 'pan-nativa-progetto.firebasestorage.app';
   static const _pathRoot = 'public_profiles';
   static const _refreshInterval = Duration(seconds: 30);
 
@@ -51,10 +51,7 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
 
   Future<String?> _loadUrl() async {
     try {
-      final bucket = Firebase.app().options.storageBucket;
-      final storage = (bucket != null && bucket.isNotEmpty)
-          ? FirebaseStorage.instanceFor(bucket: bucket)
-          : FirebaseStorage.instance;
+      final storage = FirebaseStorage.instanceFor(bucket: _bucket);
       final baseRef = storage.ref().child(_pathRoot).child(widget.uid);
       final avatarRef = baseRef.child('avatar.jpg');
 
