@@ -427,9 +427,9 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                   ),
                 ],
               ),
-            ],
-          ),
-          bottomNavigationBar: const AppNavBar(currentIndex: 1),
+              bottomNavigationBar: const AppNavBar(currentIndex: 1),
+            );
+          },
         );
       },
     );
