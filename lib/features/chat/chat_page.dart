@@ -40,17 +40,8 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
     super.dispose();
   }
 
-  Future<void> _deleteChatCascade(String chatId) async {
+  Future<void> _deleteChatDoc(String chatId) async {
     final chatRef = FirebaseFirestore.instance.collection('chats').doc(chatId);
-    while (true) {
-      final msgs = await chatRef.collection('messages').limit(300).get();
-      if (msgs.docs.isEmpty) break;
-      final batch = FirebaseFirestore.instance.batch();
-      for (final m in msgs.docs) {
-        batch.delete(m.reference);
-      }
-      await batch.commit();
-    }
     await chatRef.delete();
   }
 
@@ -62,8 +53,8 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
         title: const Text('Eliminare le chat selezionate?'),
         content: Text(
           _selected.length == 1
-              ? 'Verrà rimossa anche la cronologia della conversazione.'
-              : 'Verranno rimosse anche le cronologie di ${_selected.length} conversazioni.',
+              ? 'La conversazione verrà rimossa dalla tua lista.'
+              : 'Verranno rimosse ${_selected.length} conversazioni dalla tua lista.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(_, false), child: const Text('Annulla')),
@@ -74,7 +65,7 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
     if (ok != true) return;
 
     for (final id in _selected) {
-      await _deleteChatCascade(id);
+      await _deleteChatDoc(id);
     }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -134,7 +125,7 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
                     context: context,
                     builder: (_) => AlertDialog(
                       title: const Text('Eliminare la chat?'),
-                      content: const Text('Verranno rimossi anche i messaggi. Operazione irreversibile.'),
+                      content: const Text('La conversazione verrà rimossa dalla tua lista.'),
                       actions: [
                         TextButton(onPressed: () => Navigator.pop(_, false), child: const Text('Annulla')),
                         FilledButton(onPressed: () => Navigator.pop(_, true), child: const Text('Elimina')),
@@ -142,7 +133,7 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
                     ),
                   );
                   if (ok == true) {
-                    await _deleteChatCascade(id);
+                    await _deleteChatDoc(id);
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Conversazione eliminata')),
@@ -491,12 +482,19 @@ class _GroupsList extends StatelessWidget {
 
   Future<void> _enterGroup(BuildContext context, String gid, String title) async {
     final ref = FirebaseFirestore.instance.collection('groups').doc(gid);
-    await ref.set({
-      'groupId': gid,
-      'title': title,
-      'members': FieldValue.arrayUnion([meUid]),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    final snap = await ref.get();
+    if (snap.exists) {
+      await ref.update({
+        'members': FieldValue.arrayUnion([meUid]),
+      });
+    } else {
+      await ref.set({
+        'groupId': gid,
+        'title': title,
+        'members': FieldValue.arrayUnion([meUid]),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
 
     if (context.mounted) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => GroupChatPage(groupId: gid, title: title)));

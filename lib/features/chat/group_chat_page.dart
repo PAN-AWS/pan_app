@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../marketplace/public_profile_page.dart';
+import '../../app/widgets/app_nav_bar.dart';
 
 class GroupChatPage extends StatefulWidget {
   final String groupId;
@@ -84,6 +85,14 @@ class _GroupChatPageState extends State<GroupChatPage> {
       final path = 'group_media/${widget.groupId}/$msgId/${picked.name}';
       final ref = FirebaseStorage.instance.ref(path);
       final bytes = await picked.readAsBytes();
+      if (bytes.length > 20 * 1024 * 1024) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('File troppo grande (max 20 MB).')),
+          );
+        }
+        return;
+      }
       final inferredType = _inferContentType(picked.name, isVideo: isVideo);
       final metadata = SettableMetadata(contentType: inferredType);
 
@@ -115,7 +124,13 @@ class _GroupChatPageState extends State<GroupChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final me = FirebaseAuth.instance.currentUser!;
+    final me = FirebaseAuth.instance.currentUser;
+    if (me == null) {
+      return const Scaffold(
+        body: Center(child: Text('Accedi per usare la chat di gruppo.')),
+        bottomNavigationBar: AppNavBar(currentIndex: 1),
+      );
+    }
     final q = FirebaseFirestore.instance
         .collection('groups')
         .doc(widget.groupId)
@@ -254,6 +269,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
           ),
         ],
       ),
+      bottomNavigationBar: const AppNavBar(currentIndex: 1),
     );
   }
 }
