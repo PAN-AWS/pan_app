@@ -120,7 +120,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       _email.text = user.email ?? '';
 
       final db = FirebaseFirestore.instance;
-      final snap = await db.collection('users').doc(user.uid).get();
+      final snap = await db.collection('users_private').doc(user.uid).get();
       final data = snap.data() as Map<String, dynamic>?;
 
       if (data != null) {
@@ -262,7 +262,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       final db = FirebaseFirestore.instance;
 
       // PRIVATO
-      await db.collection('users').doc(user.uid).set({
+      await db.collection('users_private').doc(user.uid).set({
         'uid'   : user.uid,
         'email' : user.email,
         'firstName': _firstName.text.trim(),
@@ -284,7 +284,6 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       // PUBBLICO
       final displayName = '${_firstName.text.trim()} ${_lastName.text.trim()}'.trim();
       await db.collection('public_profiles').doc(user.uid).set({
-        'uid'         : user.uid,
         'displayName' : displayName,
         'role'        : _role,
         'provinceCode': _provinceCode,

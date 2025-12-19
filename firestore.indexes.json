@@ -4,31 +4,39 @@
       "collectionGroup": "chats",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "type", "order": "ASCENDING" },
         { "fieldPath": "members", "arrayConfig": "CONTAINS" },
-        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+        { "fieldPath": "lastMessageAt", "order": "DESCENDING" }
       ]
     },
     {
-      "collectionGroup": "users",
+      "collectionGroup": "groups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "members", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "lastMessageAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "public_profiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "displayName", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "public_profiles",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "role", "order": "ASCENDING" },
-        { "fieldPath": "nameLower", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "users",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "province", "order": "ASCENDING" },
         { "fieldPath": "products", "arrayConfig": "CONTAINS" }
       ]
     },
     {
-      "collectionGroup": "users",
+      "collectionGroup": "public_profiles",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "role", "order": "ASCENDING" },
+        { "fieldPath": "provinceCode", "order": "ASCENDING" },
         { "fieldPath": "products", "arrayConfig": "CONTAINS" }
       ]
     }

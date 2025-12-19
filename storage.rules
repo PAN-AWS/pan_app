@@ -1,7 +1,6 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-
     function isSignedIn() {
       return request.auth != null;
     }
@@ -19,7 +18,6 @@ service firebase.storage {
       return isSignedIn()
         && chatId is string
         && firestore.exists(/databases/$(database)/documents/chats/$(chatId))
-        && firestore.get(/databases/$(database)/documents/chats/$(chatId)).data.members is list
         && firestore.get(/databases/$(database)/documents/chats/$(chatId)).data.members.hasAny([request.auth.uid]);
     }
 
@@ -27,45 +25,35 @@ service firebase.storage {
       return isSignedIn()
         && groupId is string
         && firestore.exists(/databases/$(database)/documents/groups/$(groupId))
-        && firestore.get(/databases/$(database)/documents/groups/$(groupId)).data.members is list
         && firestore.get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
     }
 
-    // Avatar / immagini profilo pubbliche
-    // Nota: non bloccare se contentType è null (tipico se metadata non impostati).
-    match /public_profiles/{userId}/{allPaths=**} {
-      allow read: if true;
+    match /public_profiles/{userId}/{fileName} {
+      allow read: if isSignedIn();
       allow write: if isSignedIn()
         && request.auth.uid == userId
-        && (request.resource.contentType == null || isAllowedContentType())
-        && isAllowedSize(10 * 1024 * 1024); // 10 MB
-    }
-
-    // Profili privati (file)
-    match /users/{userId}/profile/{allPaths=**} {
-      allow read, write: if isSignedIn()
-        && request.auth.uid == userId
-        && (request.resource.contentType == null || isAllowedContentType())
+        && fileName.matches('avatar\\.(jpg|png|webp)')
+        && request.resource.contentType != null
+        && request.resource.contentType.matches('image/.*')
         && isAllowedSize(10 * 1024 * 1024);
     }
 
-    // Media chat uno-a-uno
     match /chat_media/{chatId}/{messageId}/{fileName} {
       allow read: if isChatMember(chatId);
       allow write: if isChatMember(chatId)
+        && request.resource.contentType != null
         && isAllowedContentType()
-        && isAllowedSize(20 * 1024 * 1024); // 20 MB
+        && isAllowedSize(20 * 1024 * 1024);
     }
 
-    // Media chat di gruppo
     match /group_media/{groupId}/{messageId}/{fileName} {
       allow read: if isGroupMember(groupId);
       allow write: if isGroupMember(groupId)
+        && request.resource.contentType != null
         && isAllowedContentType()
-        && isAllowedSize(20 * 1024 * 1024); // 20 MB
+        && isAllowedSize(20 * 1024 * 1024);
     }
 
-    // Blocca tutto il resto
     match /{allPaths=**} {
       allow read, write: if false;
     }

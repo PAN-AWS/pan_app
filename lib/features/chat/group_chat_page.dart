@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../marketplace/public_profile_page.dart';
 import '../../app/widgets/app_nav_bar.dart';
+import '../../utils/app_logger.dart';
 
 class GroupChatPage extends StatefulWidget {
   final String groupId;
@@ -39,11 +40,21 @@ class _GroupChatPageState extends State<GroupChatPage> {
     return '[Allegato]';
   }
 
-  Future<void> _send({String? mediaUrl, String? mediaType, String? fileName, String? messageId}) async {
+  Future<void> _send({
+    String? mediaPath,
+    String? mediaType,
+    int? sizeBytes,
+    String? messageId,
+  }) async {
     final me = FirebaseAuth.instance.currentUser;
     if (me == null) return;
     final text = _text.text.trim();
-    if (text.isEmpty && mediaUrl == null) return;
+    if (text.isEmpty && mediaPath == null) return;
+    final messageType = mediaPath == null
+        ? 'text'
+        : mediaType != null && mediaType.startsWith('video/')
+            ? 'video'
+            : 'image';
 
     setState(() => _sending = true);
     final groupRef = FirebaseFirestore.instance.collection('groups').doc(widget.groupId);
@@ -53,18 +64,24 @@ class _GroupChatPageState extends State<GroupChatPage> {
 
     try {
       await FirebaseFirestore.instance.runTransaction((tx) async {
-        tx.set(msgRef, {
+        final data = <String, dynamic>{
           'senderId': me.uid,
-          'text': text,
-          'mediaUrl': mediaUrl,
-          'mediaType': mediaType,
-          'fileName': fileName,
+          'type': messageType,
           'createdAt': FieldValue.serverTimestamp(),
-        });
+        };
+        if (messageType == 'text') {
+          data['text'] = text;
+        } else {
+          data['mediaPath'] = mediaPath;
+          data['contentType'] = mediaType;
+          data['sizeBytes'] = sizeBytes;
+        }
+        tx.set(msgRef, data);
         tx.set(groupRef, {
-          'lastMessage': _summaryFor(text: text, mediaType: mediaType),
-          'lastSenderId': me.uid,
-          'updatedAt': FieldValue.serverTimestamp(),
+          'lastMessageText': _summaryFor(text: text, mediaType: mediaType),
+          'lastMessageType': messageType,
+          'lastMessageSenderId': me.uid,
+          'lastMessageAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       });
 
@@ -106,15 +123,17 @@ class _GroupChatPageState extends State<GroupChatPage> {
       final metadata = SettableMetadata(contentType: inferredType);
 
       await ref.putData(bytes, metadata);
-      final url = await ref.getDownloadURL();
+      await ref.getMetadata();
 
+      _text.clear();
       await _send(
-        mediaUrl: url,
+        mediaPath: path,
         mediaType: inferredType,
-        fileName: picked.name,
+        sizeBytes: bytes.length,
         messageId: msgId,
       );
     } catch (e) {
+      AppLogger.error('Upload media failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Errore caricamento: $e')));
       }
@@ -166,11 +185,11 @@ class _GroupChatPageState extends State<GroupChatPage> {
                     final senderId = (d['senderId'] ?? '') as String;
                     final mine = senderId == me.uid;
                     final text = (d['text'] ?? '') as String;
-                    final mediaUrl = (d['mediaUrl'] ?? '') as String;
-                    final mediaType = (d['mediaType'] ?? '') as String;
-                    final fileName = (d['fileName'] ?? '') as String;
-                    final hasImage = mediaUrl.isNotEmpty && mediaType.startsWith('image/');
-                    final hasVideo = mediaUrl.isNotEmpty && mediaType.startsWith('video/');
+                    final mediaPath = (d['mediaPath'] ?? '') as String;
+                    final mediaType = (d['contentType'] ?? '') as String;
+                    final messageType = (d['type'] ?? '') as String;
+                    final hasImage = mediaPath.isNotEmpty && messageType == 'image';
+                    final hasVideo = mediaPath.isNotEmpty && messageType == 'video';
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -211,18 +230,20 @@ class _GroupChatPageState extends State<GroupChatPage> {
                                       padding: const EdgeInsets.only(bottom: 6),
                                       child: ConstrainedBox(
                                         constraints: const BoxConstraints(maxWidth: 320, maxHeight: 320),
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(12),
-                                          child: Image.network(mediaUrl, fit: BoxFit.cover),
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(12),
+                                            child: _MediaAttachment(
+                                              path: mediaPath,
+                                              contentType: mediaType,
+                                            ),
+                                          ),
                                         ),
                                       ),
-                                    ),
                                   if (hasVideo)
                                     Padding(
                                       padding: const EdgeInsets.only(bottom: 6),
                                       child: _VideoAttachment(
-                                        url: mediaUrl,
-                                        fileName: fileName.isNotEmpty ? fileName : 'video',
+                                        path: mediaPath,
                                       ),
                                     ),
                                   if (text.isNotEmpty) Text(text),
@@ -336,11 +357,18 @@ class _SenderName extends StatelessWidget {
 }
 
 class _VideoAttachment extends StatelessWidget {
-  final String url;
-  final String fileName;
-  const _VideoAttachment({required this.url, required this.fileName});
+  final String path;
+  const _VideoAttachment({required this.path});
 
-  Future<void> _open() async {
+  FirebaseStorage _storage() {
+    final bucket = Firebase.app().options.storageBucket;
+    if (bucket != null && bucket.isNotEmpty) {
+      return FirebaseStorage.instanceFor(bucket: bucket);
+    }
+    return FirebaseStorage.instance;
+  }
+
+  Future<void> _open(String url) async {
     final uri = Uri.parse(url);
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       throw 'Impossibile aprire il video';
@@ -349,29 +377,69 @@ class _VideoAttachment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: _open,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.onSecondaryContainer.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.play_circle_fill, size: 28),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                fileName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+    final fileName = path.split('/').last;
+    return FutureBuilder<String>(
+      future: _storage().ref(path).getDownloadURL(),
+      builder: (context, snap) {
+        return InkWell(
+          onTap: snap.hasData ? () => _open(snap.data!) : null,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.onSecondaryContainer.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(12),
             ),
-          ],
-        ),
-      ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.play_circle_fill, size: 28),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    fileName.isNotEmpty ? fileName : 'video',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MediaAttachment extends StatelessWidget {
+  final String path;
+  final String contentType;
+  const _MediaAttachment({required this.path, required this.contentType});
+
+  FirebaseStorage _storage() {
+    final bucket = Firebase.app().options.storageBucket;
+    if (bucket != null && bucket.isNotEmpty) {
+      return FirebaseStorage.instanceFor(bucket: bucket);
+    }
+    return FirebaseStorage.instance;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String>(
+      future: _storage().ref(path).getDownloadURL(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!snap.hasData) {
+          return const Center(child: Icon(Icons.broken_image));
+        }
+        return Image.network(
+          snap.data!,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const Center(child: Icon(Icons.broken_image)),
+        );
+      },
     );
   }
 }

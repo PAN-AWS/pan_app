@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'theme.dart';
+import 'auth_gate.dart';
 
 // FEATURES (cartelle come da tuo progetto)
 import '../features/auth/auth_page.dart';
@@ -52,30 +53,54 @@ class PanApp extends StatelessWidget {
   Route<dynamic> _onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
       case Routes.home:
-        return MaterialPageRoute(builder: (_) => HomePage(), settings: settings);
+        return MaterialPageRoute(
+          builder: (_) => AuthGate(builder: (_) => HomePage()),
+          settings: settings,
+        );
 
       case Routes.auth:
-        return MaterialPageRoute(builder: (_) => AuthPage(), settings: settings);
+        return MaterialPageRoute(
+          builder: (_) => const AuthPage(),
+          settings: settings,
+        );
 
     // Lista conversazioni (DM + gruppi)
       case Routes.chatList:
-        return MaterialPageRoute(builder: (_) => ChatPage(), settings: settings);
+        return MaterialPageRoute(
+          builder: (_) => AuthGate(builder: (_) => ChatPage()),
+          settings: settings,
+        );
 
     // Lista gruppi (se hai una pagina dedicata, sostituisci qui)
       case Routes.groupList:
-        return MaterialPageRoute(builder: (_) => ChatPage(), settings: settings);
+        return MaterialPageRoute(
+          builder: (_) => AuthGate(builder: (_) => ChatPage()),
+          settings: settings,
+        );
 
       case Routes.market:
-        return MaterialPageRoute(builder: (_) => MarketplacePage(), settings: settings);
+        return MaterialPageRoute(
+          builder: (_) => AuthGate(builder: (_) => MarketplacePage()),
+          settings: settings,
+        );
 
       case Routes.notifications:
-        return MaterialPageRoute(builder: (_) => NotificationsPage(), settings: settings);
+        return MaterialPageRoute(
+          builder: (_) => AuthGate(builder: (_) => NotificationsPage()),
+          settings: settings,
+        );
 
       case Routes.profile:
-        return MaterialPageRoute(builder: (_) => ProfilePage(), settings: settings);
+        return MaterialPageRoute(
+          builder: (_) => AuthGate(builder: (_) => ProfilePage()),
+          settings: settings,
+        );
 
       case Routes.profileSetup:
-        return MaterialPageRoute(builder: (_) => ProfileSetupPage(), settings: settings);
+        return MaterialPageRoute(
+          builder: (_) => AuthGate(builder: (_) => ProfileSetupPage()),
+          settings: settings,
+        );
 
       case Routes.publicProfile: {
         final args = settings.arguments;
@@ -88,7 +113,7 @@ class PanApp extends StatelessWidget {
           uid = (args['uid'] as String?) ?? '';
         }
         return MaterialPageRoute(
-          builder: (_) => PublicProfilePage(uid: uid),
+          builder: (_) => AuthGate(builder: (_) => PublicProfilePage(uid: uid)),
           settings: settings,
         );
       }
@@ -107,7 +132,9 @@ class PanApp extends StatelessWidget {
           chatId = args;
         }
         return MaterialPageRoute(
-          builder: (_) => ChatRoomPage(chatId: chatId, otherUid: otherUid),
+          builder: (_) => AuthGate(
+            builder: (_) => ChatRoomPage(chatId: chatId, otherUid: otherUid),
+          ),
           settings: settings,
         );
       }
@@ -124,7 +151,9 @@ class PanApp extends StatelessWidget {
           title = (args['title'] as String?) ?? 'Gruppo';
         }
         return MaterialPageRoute(
-          builder: (_) => GroupChatPage(groupId: groupId, title: title),
+          builder: (_) => AuthGate(
+            builder: (_) => GroupChatPage(groupId: groupId, title: title),
+          ),
           settings: settings,
         );
       }
@@ -148,19 +177,19 @@ class _Root extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const _Splash();
-        }
-        final user = snap.data;
-        if (user == null) {
-          return AuthPage();
-        }
-        return HomePage();
-      },
+    return const AuthGate(
+      loading: _Splash(),
+      builder: _RootContent.new,
     );
+  }
+}
+
+class _RootContent extends StatelessWidget {
+  const _RootContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return HomePage();
   }
 }
 
