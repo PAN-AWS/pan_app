@@ -48,7 +48,7 @@ service firebase.storage {
       allow read: if isChatMember(chatId);
       allow write: if isChatMember(chatId)
         && isAllowedContentType()
-        && request.resource.size < 20 * 1024 * 1024; // 20 MB
+        && isAllowedSize(20 * 1024 * 1024); // 20 MB
     }
 
     // Media chat di gruppo
@@ -56,7 +56,7 @@ service firebase.storage {
       allow read: if isGroupMember(groupId);
       allow write: if isGroupMember(groupId)
         && isAllowedContentType()
-        && request.resource.size < 20 * 1024 * 1024; // 20 MB
+        && isAllowedSize(20 * 1024 * 1024); // 20 MB
     }
 
     // Blocca tutto il resto
