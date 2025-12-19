@@ -8,8 +8,11 @@ ThemeData _baseTheme(Brightness brightness) {
   final isDark = brightness == Brightness.dark;
 
   final colorScheme = ColorScheme.fromSeed(
-    seedColor: const Color(0xFF2E7D32), // verde PAN
+    seedColor: const Color(0xFF0B1D3A), // blu notte
     brightness: brightness,
+  ).copyWith(
+    secondary: const Color(0xFFF08A24), // arancio
+    tertiary: const Color(0xFFF08A24),
   );
 
   final textTheme = Typography.material2021(platform: TargetPlatform.android)
@@ -25,7 +28,7 @@ ThemeData _baseTheme(Brightness brightness) {
     brightness: brightness,
     colorScheme: colorScheme,
     scaffoldBackgroundColor:
-    isDark ? const Color(0xFF101214) : const Color(0xFFF8FAF9),
+    isDark ? const Color(0xFF12161C) : const Color(0xFFF6F7F9),
     textTheme: textTheme,
 
     // AppBar
@@ -44,7 +47,7 @@ ThemeData _baseTheme(Brightness brightness) {
       elevation: 0,
       margin: const EdgeInsets.all(8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      color: isDark ? const Color(0xFF15181A) : Colors.white,
+      color: isDark ? const Color(0xFF1A1F26) : Colors.white,
     ),
 
     // ListTile
@@ -92,7 +95,7 @@ ThemeData _baseTheme(Brightness brightness) {
     inputDecorationTheme: InputDecorationTheme(
       isDense: false,
       filled: !isDark,
-      fillColor: isDark ? null : const Color(0xFFF1F3F2),
+      fillColor: isDark ? null : const Color(0xFFF0F2F5),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -124,7 +127,7 @@ ThemeData _baseTheme(Brightness brightness) {
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor:
-      isDark ? const Color(0xFF1D2123) : const Color(0xFF2F3B37),
+      isDark ? const Color(0xFF1A1F26) : const Color(0xFF0B1D3A),
       contentTextStyle: textTheme.bodyMedium?.copyWith(color: Colors.white),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
@@ -143,7 +146,7 @@ ThemeData _baseTheme(Brightness brightness) {
       side: BorderSide(color: colorScheme.outlineVariant),
       labelStyle: textTheme.labelLarge,
       backgroundColor:
-      isDark ? const Color(0xFF171A1C) : const Color(0xFFEFF3F0),
+      isDark ? const Color(0xFF1A1F26) : const Color(0xFFE9EDF3),
       selectedColor: colorScheme.primary.withOpacity(0.15),
       secondarySelectedColor:
       colorScheme.secondary.withOpacity(0.15),

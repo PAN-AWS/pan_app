@@ -17,6 +17,7 @@ dependencies:
   firebase_auth:
   cloud_firestore:
   firebase_storage:
+  firebase_app_check:
 
   # Auth & utilità
   google_sign_in:

@@ -140,6 +140,9 @@ class _ProfilePageState extends State<ProfilePage> {
           .child('avatar.jpg');
 
       final metadata = SettableMetadata(contentType: 'image/jpeg');
+      if (avatar.bytes.lengthInBytes > 10 * 1024 * 1024) {
+        throw Exception('Avatar troppo grande (max 10 MB).');
+      }
 
       debugPrint('[AVATAR] storage bucket=${storage.bucket}');
       debugPrint(
@@ -187,6 +190,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
       String url;
       try {
+        await ref.getMetadata();
         url = await ref.getDownloadURL();
         debugPrint('[PROFILE] got URL: $url');
         SyncStatusController.instance.add(
@@ -217,22 +221,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
       await user.updatePhotoURL(url);
 
-      await Future.wait([
-        _db.collection('public_profiles').doc(user.uid).set(
-          {
-            'avatarUrl': url,
-            'updatedAt': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        ),
-        _db.collection('users').doc(user.uid).set(
-          {
-            'photoURL': url,
-            'updatedAt': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        ),
-      ]);
+      await _db.collection('public_profiles').doc(user.uid).set(
+        {
+          'avatarPath': ref.fullPath,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
 
       debugPrint('[AVATAR-UPLOAD] uid=${user.uid} url=$url bucket=${ref.bucket} path=${ref.fullPath}');
 

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../app/widgets/profile_avatar.dart';
 import '../marketplace/public_profile_page.dart';
@@ -69,6 +70,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
   DocumentSnapshot<Map<String, dynamic>>? _lastDoc;
   bool _loading = false;
   bool _hasMore = true;
+  String? _authedUid;
 
   bool get _needsLocalProvinceFilter =>
       _product == _any && _role != _any && _province != _any;
@@ -137,7 +139,6 @@ class _MarketplacePageState extends State<MarketplacePage> {
   @override
   void initState() {
     super.initState();
-    _refresh();
   }
 
   void _onFilterChanged(void Function() update) {
@@ -147,97 +148,114 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Marketplace')),
-      body: Column(
-        children: [
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: LayoutBuilder(
-              builder: (context, c) {
-                final w = c.maxWidth;
-                final isWide = w >= 700;
-                if (isWide) {
-                  // griglia 3 colonne su desktop/tablet
-                  return Row(
-                    children: [
-                      Expanded(child: _buildDropdown('Ruolo', _role, _roles, (v) => _onFilterChanged(() => _role = v ?? _any))),
-                      const SizedBox(width: 8),
-                      Expanded(child: _buildDropdown('Provincia', _province, _provinces, (v) => _onFilterChanged(() => _province = v ?? _any))),
-                      const SizedBox(width: 8),
-                      Expanded(child: _buildDropdown('Prodotto', _product, _products, (v) => _onFilterChanged(() => _product = v ?? _any))),
-                    ],
-                  );
-                } else {
-                  // colonna su schermi stretti
-                  return Column(
-                    children: [
-                      _buildDropdown('Ruolo', _role, _roles, (v) => _onFilterChanged(() => _role = v ?? _any)),
-                      const SizedBox(height: 8),
-                      _buildDropdown('Provincia', _province, _provinces, (v) => _onFilterChanged(() => _province = v ?? _any)),
-                      const SizedBox(height: 8),
-                      _buildDropdown('Prodotto', _product, _products, (v) => _onFilterChanged(() => _product = v ?? _any)),
-                    ],
-                  );
-                }
-              },
-            ),
-          ),
-          const Divider(height: 16),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _refresh,
-              child: ListView.separated(
-                itemCount: _items.length + 1,
-                separatorBuilder: (_, __) => const Divider(height: 0),
-                itemBuilder: (_, i) {
-                  if (i == _items.length) {
-                    // footer “carica altri”
-                    if (_loading) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Center(child: CircularProgressIndicator()),
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snap) {
+        final user = snap.data;
+        if (user == null) {
+          return const Scaffold(
+            body: Center(child: Text('Accedi per usare il marketplace.')),
+            bottomNavigationBar: AppNavBar(currentIndex: 2),
+          );
+        }
+
+        if (_authedUid != user.uid) {
+          _authedUid = user.uid;
+          WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
+        }
+
+        return Scaffold(
+          appBar: AppBar(title: const Text('Marketplace')),
+          body: Column(
+            children: [
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: LayoutBuilder(
+                  builder: (context, c) {
+                    final w = c.maxWidth;
+                    final isWide = w >= 700;
+                    if (isWide) {
+                      // griglia 3 colonne su desktop/tablet
+                      return Row(
+                        children: [
+                          Expanded(child: _buildDropdown('Ruolo', _role, _roles, (v) => _onFilterChanged(() => _role = v ?? _any))),
+                          const SizedBox(width: 8),
+                          Expanded(child: _buildDropdown('Provincia', _province, _provinces, (v) => _onFilterChanged(() => _province = v ?? _any))),
+                          const SizedBox(width: 8),
+                          Expanded(child: _buildDropdown('Prodotto', _product, _products, (v) => _onFilterChanged(() => _product = v ?? _any))),
+                        ],
+                      );
+                    } else {
+                      // colonna su schermi stretti
+                      return Column(
+                        children: [
+                          _buildDropdown('Ruolo', _role, _roles, (v) => _onFilterChanged(() => _role = v ?? _any)),
+                          const SizedBox(height: 8),
+                          _buildDropdown('Provincia', _province, _provinces, (v) => _onFilterChanged(() => _province = v ?? _any)),
+                          const SizedBox(height: 8),
+                          _buildDropdown('Prodotto', _product, _products, (v) => _onFilterChanged(() => _product = v ?? _any)),
+                        ],
                       );
                     }
-                    if (_hasMore) {
-                      // trigger caricamento quando arriva in fondo
-                      WidgetsBinding.instance.addPostFrameCallback((_) => _loadMore());
-                      return const SizedBox(height: 72);
-                    }
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Center(child: Text('Fine risultati')),
-                    );
-                  }
+                  },
+                ),
+              ),
+              const Divider(height: 16),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: ListView.separated(
+                    itemCount: _items.length + 1,
+                    separatorBuilder: (_, __) => const Divider(height: 0),
+                    itemBuilder: (_, i) {
+                      if (i == _items.length) {
+                        // footer “carica altri”
+                        if (_loading) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        if (_hasMore) {
+                          // trigger caricamento quando arriva in fondo
+                          WidgetsBinding.instance.addPostFrameCallback((_) => _loadMore());
+                          return const SizedBox(height: 72);
+                        }
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Center(child: Text('Fine risultati')),
+                        );
+                      }
 
-                  final d = _items[i].data();
-                  final uid = _items[i].id;
-                  final name = (d['displayName'] ?? '').toString();
-                  final role = (d['role'] ?? '-').toString();
-                  final provCode = (d['provinceCode'] ?? '-').toString();
-                  final provName = (d['provinceName'] ?? '').toString();
-                  final prov = provName.isNotEmpty ? '$provName ($provCode)' : provCode;
-                  debugPrint('[MARKETPLACE] uid=$uid');
+                      final d = _items[i].data();
+                      final uid = _items[i].id;
+                      final name = (d['displayName'] ?? '').toString();
+                      final role = (d['role'] ?? '-').toString();
+                      final provCode = (d['provinceCode'] ?? '-').toString();
+                      final provName = (d['provinceName'] ?? '').toString();
+                      final prov = provName.isNotEmpty ? '$provName ($provCode)' : provCode;
 
-                  return ListTile(
-                    leading: ProfileAvatar(uid: uid),
-                    title: Text(name.isEmpty ? '-' : name),
-                    subtitle: Text('$role • $prov'), // niente email
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => PublicProfilePage(uid: uid)),
+                      return ListTile(
+                        leading: ProfileAvatar(uid: uid),
+                        title: Text(name.isEmpty ? '-' : name),
+                        subtitle: Text('$role • $prov'),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => PublicProfilePage(uid: uid)),
+                          );
+                        },
                       );
                     },
-                  );
-                },
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
-      bottomNavigationBar: const AppNavBar(currentIndex: 2),
+          bottomNavigationBar: const AppNavBar(currentIndex: 2),
+        );
+      },
     );
   }
 

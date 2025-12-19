@@ -3,15 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../app/widgets/profile_avatar.dart';
 import '../chat/chat_room_page.dart';
+import '../../utils/chat_ids.dart';
 
 class PublicProfilePage extends StatelessWidget {
   final String uid;
   const PublicProfilePage({super.key, required this.uid});
-
-  String _chatIdFor(String a, String b) {
-    final x = [a, b]..sort();
-    return '${x[0]}_${x[1]}';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,11 +34,12 @@ class PublicProfilePage extends StatelessWidget {
           final d = snap.data!.data() as Map<String, dynamic>;
           final name = (d['displayName']?.toString() ?? 'Utente');
           final role = (d['role']?.toString() ?? '-');
+          final company = (d['company']?.toString() ?? '');
+          final bio = (d['bio']?.toString() ?? '');
           final prov = (d['provinceName']?.toString().isNotEmpty == true)
               ? '${d['provinceName']} (${d['provinceCode'] ?? ''})'
               : (d['provinceCode']?.toString() ?? '-');
           final products = (d['products'] as List?)?.cast<String>() ?? const <String>[];
-          debugPrint('[PUBLIC-PROFILE] uid=$uid');
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -60,12 +57,17 @@ class PublicProfilePage extends StatelessWidget {
                         Wrap(spacing: 6, runSpacing: -6, children: [
                           Chip(label: Text(role)),
                           if (prov.isNotEmpty) Chip(label: Text(prov)),
+                          if (company.isNotEmpty) Chip(label: Text(company)),
                         ]),
                       ],
                     ),
                   ),
                 ],
               ),
+              if (bio.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(bio),
+              ],
               const SizedBox(height: 16),
               Text('Prodotti trattati', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
@@ -92,11 +94,20 @@ class PublicProfilePage extends StatelessWidget {
                       return;
                     }
                     final myUid = curr.uid;
-                    final chatId = _chatIdFor(myUid, uid);
-                    await FirebaseFirestore.instance.collection('chats').doc(chatId).set({
-                      'members': [myUid, uid],
-                      'updatedAt': FieldValue.serverTimestamp(),
-                    }, SetOptions(merge: true));
+                    final chatId = dmChatIdFor(myUid, uid);
+                    final chatRef = FirebaseFirestore.instance.collection('chats').doc(chatId);
+                    await FirebaseFirestore.instance.runTransaction((tx) async {
+                      final snap = await tx.get(chatRef);
+                      if (!snap.exists) {
+                        tx.set(chatRef, {
+                          'type': 'dm',
+                          'members': [myUid, uid],
+                          'createdBy': myUid,
+                          'createdAt': FieldValue.serverTimestamp(),
+                          'lastMessageAt': FieldValue.serverTimestamp(),
+                        });
+                      }
+                    });
                     if (context.mounted) {
                       Navigator.push(
                         context,

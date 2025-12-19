@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../app/widgets/app_nav_bar.dart';
 
 /// Modalità di notifica disponibili.
-/// Valori salvati su Firestore in: users/{uid}.notifications.mode
+/// Valori salvati su Firestore in: users_private/{uid}.notifications.mode
 enum NotificationMode {
   off,            // nessuna notifica
   appOnly,        // solo notifiche "di sistema/app"
@@ -55,7 +55,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
     setState(() => _saving = true);
     try {
-      await FirebaseFirestore.instance.collection('users').doc(me.uid).set({
+      await FirebaseFirestore.instance.collection('users_private').doc(me.uid).set({
         'notifications': {
           'mode': _modeToString[mode],
           'updatedAt': FieldValue.serverTimestamp(),
@@ -86,7 +86,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       );
     }
 
-    final userDoc = FirebaseFirestore.instance.collection('users').doc(me.uid);
+    final userDoc = FirebaseFirestore.instance.collection('users_private').doc(me.uid);
 
     return StreamBuilder<DocumentSnapshot>(
       stream: userDoc.snapshots(),

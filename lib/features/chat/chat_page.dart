@@ -8,11 +8,6 @@ import 'group_chat_page.dart';
 import '../marketplace/public_profile_page.dart';
 import '../../app/widgets/app_nav_bar.dart';
 
-String chatIdFor(String a, String b) {
-  final x = [a, b]..sort();
-  return '${x[0]}_${x[1]}';
-}
-
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
   @override
@@ -21,58 +16,17 @@ class ChatPage extends StatefulWidget {
 
 class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin {
   late final TabController _tab;
-  final Set<String> _selected = {};
 
   @override
   void initState() {
     super.initState();
     _tab = TabController(length: 2, vsync: this);
-    _tab.addListener(() {
-      if (_tab.index != 0 && _selected.isNotEmpty) {
-        setState(_selected.clear);
-      }
-    });
   }
 
   @override
   void dispose() {
     _tab.dispose();
     super.dispose();
-  }
-
-  Future<void> _deleteChatDoc(String chatId) async {
-    final chatRef = FirebaseFirestore.instance.collection('chats').doc(chatId);
-    await chatRef.delete();
-  }
-
-  Future<void> _deleteSelectedChats(BuildContext context) async {
-    if (_selected.isEmpty) return;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Eliminare le chat selezionate?'),
-        content: Text(
-          _selected.length == 1
-              ? 'La conversazione verrà rimossa dalla tua lista.'
-              : 'Verranno rimosse ${_selected.length} conversazioni dalla tua lista.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(_, false), child: const Text('Annulla')),
-          FilledButton(onPressed: () => Navigator.pop(_, true), child: const Text('Elimina')),
-        ],
-      ),
-    );
-    if (ok != true) return;
-
-    for (final id in _selected) {
-      await _deleteChatDoc(id);
-    }
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${_selected.length} chat eliminate')),
-      );
-      setState(_selected.clear);
-    }
   }
 
   @override
@@ -86,7 +40,6 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
             body: Center(child: Text('Accedi per usare la chat.')),
           );
         }
-        final showTrash = _tab.index == 0 && _selected.isNotEmpty;
 
         return Scaffold(
           appBar: AppBar(
@@ -95,157 +48,18 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
               controller: _tab,
               tabs: const [Tab(text: 'Conversazioni'), Tab(text: 'Gruppi')],
             ),
-            actions: [
-              if (showTrash)
-                IconButton(
-                  tooltip: 'Elimina chat selezionate',
-                  onPressed: () => _deleteSelectedChats(context),
-                  icon: const Icon(Icons.delete),
-                ),
-            ],
           ),
           body: TabBarView(
             controller: _tab,
             children: [
               _DmList(
                 meUid: me.uid,
-                selected: _selected,
-                onToggleSelect: (id) {
-                  setState(() {
-                    if (_selected.contains(id)) {
-                      _selected.remove(id);
-                    } else {
-                      _selected.add(id);
-                    }
-                  });
-                },
-                onClearSelection: () => setState(_selected.clear),
-                onDeleteSingle: (id) async {
-                  final ok = await showDialog<bool>(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      title: const Text('Eliminare la chat?'),
-                      content: const Text('La conversazione verrà rimossa dalla tua lista.'),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(_, false), child: const Text('Annulla')),
-                        FilledButton(onPressed: () => Navigator.pop(_, true), child: const Text('Elimina')),
-                      ],
-                    ),
-                  );
-                  if (ok == true) {
-                    await _deleteChatDoc(id);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Conversazione eliminata')),
-                      );
-                    }
-                  }
-                },
               ),
               _GroupsList(meUid: me.uid),
             ],
           ),
-          floatingActionButton: _tab.index == 0 && _selected.isEmpty
-              ? FloatingActionButton(
-            tooltip: 'Nuova chat',
-            onPressed: () => _startChatByName(context, me.uid),
-            child: const Icon(Icons.add),
-          )
-              : null,
           bottomNavigationBar: const AppNavBar(currentIndex: 1),
         );
-      },
-    );
-  }
-
-  Future<void> _startChatByName(BuildContext context, String myUid) async {
-    final searchCtrl = TextEditingController();
-    await showDialog(
-      context: context,
-      builder: (_) {
-        return StatefulBuilder(builder: (context, setState) {
-          return AlertDialog(
-            title: const Text('Nuova conversazione'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: searchCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Cerca per nome',
-                    prefixIcon: Icon(Icons.search),
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: 420,
-                  height: 260,
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: (searchCtrl.text.trim().isEmpty)
-                        ? FirebaseFirestore.instance
-                        .collection('public_profiles')
-                        .orderBy('displayName')
-                        .limit(20)
-                        .snapshots()
-                        : FirebaseFirestore.instance
-                        .collection('public_profiles')
-                        .orderBy('displayName')
-                        .startAt([searchCtrl.text.trim()])
-                        .endAt(['${searchCtrl.text.trim()}\uf8ff'])
-                        .limit(20)
-                        .snapshots(),
-                    builder: (context, snap) {
-                      if (snap.hasError) {
-                        return Center(child: Text('Errore: ${snap.error}'));
-                      }
-                      if (!snap.hasData) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      final me = FirebaseAuth.instance.currentUser!.uid;
-                      final docs = snap.data!.docs.where((d) => d.id != me).toList();
-                      if (docs.isEmpty) return const Center(child: Text('Nessun risultato'));
-                      return ListView.separated(
-                        itemCount: docs.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (_, i) {
-                          final data = docs[i].data() as Map<String, dynamic>;
-                          final uid = docs[i].id;
-                          final name = (data['displayName'] ?? 'Utente') as String;
-                          final role = (data['role'] ?? '') as String;
-                          return ListTile(
-                            leading: ProfileAvatar(uid: uid),
-                            title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                            subtitle: Text(role, maxLines: 1, overflow: TextOverflow.ellipsis),
-                            onTap: () async {
-                              final chatId = chatIdFor(myUid, uid);
-                              await FirebaseFirestore.instance.collection('chats').doc(chatId).set({
-                                'members': [myUid, uid],
-                                'updatedAt': FieldValue.serverTimestamp(),
-                              }, SetOptions(merge: true));
-                              if (context.mounted) {
-                                Navigator.pop(context);
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ChatRoomPage(chatId: chatId, otherUid: uid),
-                                  ),
-                                );
-                              }
-                            },
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Chiudi')),
-            ],
-          );
-        });
       },
     );
   }
@@ -253,37 +67,16 @@ class _ChatPageState extends State<ChatPage> with SingleTickerProviderStateMixin
 
 class _DmList extends StatelessWidget {
   final String meUid;
-  final Set<String> selected;
-  final void Function(String chatId) onToggleSelect;
-  final VoidCallback onClearSelection;
-  final Future<void> Function(String chatId) onDeleteSingle;
 
   const _DmList({
     required this.meUid,
-    required this.selected,
-    required this.onToggleSelect,
-    required this.onClearSelection,
-    required this.onDeleteSingle,
   });
 
-  Widget _bigUnreadDot(BuildContext context) {
-    return Container(
-      width: 14,
-      height: 14,
-      decoration: BoxDecoration(
-        color: Colors.green,
-        borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: Theme.of(context).colorScheme.surface, width: 2),
-      ),
-    );
-  }
-
-  // Recupera nome/ruolo con fallback a `users` se manca `public_profiles`
+  // Recupera nome/ruolo dal profilo pubblico
   Future<Map<String, String>> _getUserDisplay(String uid) async {
     try {
       final db = FirebaseFirestore.instance;
 
-      // 1) Provo public_profiles
       final pub = await db.collection('public_profiles').doc(uid).get();
       if (pub.exists) {
         final u = pub.data() as Map<String, dynamic>;
@@ -294,20 +87,7 @@ class _DmList extends StatelessWidget {
         }
       }
 
-      // 2) Fallback a users
-      final priv = await db.collection('users').doc(uid).get();
-      if (priv.exists) {
-        final d = priv.data() as Map<String, dynamic>;
-        final first = (d['firstName'] ?? d['name'] ?? '').toString().trim();
-        final last  = (d['lastName']  ?? d['surname'] ?? '').toString().trim();
-        final role  = (d['role'] ?? '').toString();
-        final composed = '$first $last'.trim();
-        if (composed.isNotEmpty) {
-          return {'name': composed, 'role': role};
-        }
-      }
-
-      // 3) Estremo fallback: UID
+      // Estremo fallback: UID
       return {'name': uid, 'role': ''};
     } catch (_) {
       return {'name': uid, 'role': ''};
@@ -318,10 +98,9 @@ class _DmList extends StatelessWidget {
   Widget build(BuildContext context) {
     final q = FirebaseFirestore.instance
         .collection('chats')
+        .where('type', isEqualTo: 'dm')
         .where('members', arrayContains: meUid)
-        .orderBy('updatedAt', descending: true);
-
-    final selectionMode = selected.isNotEmpty;
+        .orderBy('lastMessageAt', descending: true);
 
     return StreamBuilder<QuerySnapshot>(
       stream: q.snapshots(),
@@ -334,7 +113,6 @@ class _DmList extends StatelessWidget {
         }
         final chats = snap.data!.docs;
         if (chats.isEmpty) {
-          if (selectionMode) onClearSelection();
           return const Center(child: Text('Nessuna conversazione.'));
         }
 
@@ -346,39 +124,25 @@ class _DmList extends StatelessWidget {
             final d = doc.data() as Map<String, dynamic>;
             final members = List<String>.from(d['members'] ?? const <String>[]);
             final otherUid = members.firstWhere((u) => u != meUid, orElse: () => '');
-            final last = (d['lastMessage'] ?? '') as String;
-            final ts = d['updatedAt'] as Timestamp?;
+            final lastText = (d['lastMessageText'] ?? '') as String;
+            final lastType = (d['lastMessageType'] ?? '') as String;
+            final ts = d['lastMessageAt'] as Timestamp?;
             final when = ts?.toDate();
-            final isSelected = selected.contains(doc.id);
-
-            // Non letto
-            final lastSenderId = d['lastSenderId'] as String?;
-            final readBy = (d['readBy'] is Map) ? Map<String, dynamic>.from(d['readBy']) : <String, dynamic>{};
-            final readTs = readBy[meUid] is Timestamp ? (readBy[meUid] as Timestamp) : null;
-
-            bool unread = false;
-            if (ts != null) {
-              final updatedAfterRead = (readTs == null) || ts.toDate().isAfter(readTs.toDate());
-              unread = updatedAfterRead && (lastSenderId != meUid);
-            }
-
-            Widget trailing;
-            if (selectionMode) {
-              trailing = Checkbox(
-                value: isSelected,
-                onChanged: (_) => onToggleSelect(doc.id),
-              );
-            } else {
-              trailing = when != null ? Text(TimeOfDay.fromDateTime(when).format(context)) : const SizedBox.shrink();
-            }
+            final lastSummary = lastText.isNotEmpty
+                ? lastText
+                : (lastType == 'image'
+                    ? '[Foto]'
+                    : lastType == 'video'
+                        ? '[Video]'
+                        : '');
+            final trailing =
+                when != null ? Text(TimeOfDay.fromDateTime(when).format(context)) : const SizedBox.shrink();
 
             final tileInner = FutureBuilder<Map<String, String>>(
               future: _getUserDisplay(otherUid),
               builder: (context, uSnap) {
                 final title = uSnap.data?['name'] ?? otherUid;
                 final subtitle2 = uSnap.data?['role'] ?? '';
-                debugPrint('[CHAT-DM] otherUid=$otherUid');
-
                 return ListTile(
                   leading: InkWell(
                     onTap: () {
@@ -391,7 +155,6 @@ class _DmList extends StatelessWidget {
                       alignment: Alignment.bottomRight,
                       children: [
                         ProfileAvatar(uid: otherUid),
-                        if (unread) Positioned(right: 0, bottom: 0, child: _bigUnreadDot(context)),
                       ],
                     ),
                   ),
@@ -399,54 +162,25 @@ class _DmList extends StatelessWidget {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: unread
-                        ? TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    )
-                        : null,
                   ),
                   subtitle: Text(
-                    [last, subtitle2].where((s) => s.isNotEmpty).join('\n'),
+                    [lastSummary, subtitle2].where((s) => s.isNotEmpty).join('\n'),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                   isThreeLine: subtitle2.isNotEmpty,
                   trailing: trailing,
                   onTap: () {
-                    if (selectionMode) {
-                      onToggleSelect(doc.id);
-                    } else {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => ChatRoomPage(chatId: doc.id, otherUid: otherUid)),
-                      );
-                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => ChatRoomPage(chatId: doc.id, otherUid: otherUid)),
+                    );
                   },
-                  onLongPress: () => onToggleSelect(doc.id),
                 );
               },
             );
 
-            final highlight = unread
-                ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.35)
-                : Colors.transparent;
-
-            return Dismissible(
-              key: ValueKey(doc.id),
-              direction: selectionMode ? DismissDirection.none : DismissDirection.endToStart,
-              background: Container(
-                alignment: Alignment.centerRight,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                color: Colors.red,
-                child: const Icon(Icons.delete, color: Colors.white),
-              ),
-              confirmDismiss: (_) async {
-                await onDeleteSingle(doc.id);
-                return false;
-              },
-              child: Container(color: highlight, child: tileInner),
-            );
+            return tileInner;
           },
         );
       },
@@ -471,10 +205,10 @@ class _GroupsList extends StatelessWidget {
   ];
 
   String _gidFor(String name) =>
-      'prod_${name.toLowerCase().replaceAll(RegExp(r"[^a-z0-9]+"), "_")}';
+      'prod_${name.toLowerCase().replaceAll(RegExp(r\"[^a-z0-9]+\"), \"_\")}';
 
   Future<void> _toggleFav(String gid, bool add) async {
-    final ref = FirebaseFirestore.instance.collection('users').doc(meUid);
+    final ref = FirebaseFirestore.instance.collection('users_private').doc(meUid);
     await ref.set({
       'favGroups': add ? FieldValue.arrayUnion([gid]) : FieldValue.arrayRemove([gid]),
     }, SetOptions(merge: true));
@@ -489,11 +223,14 @@ class _GroupsList extends StatelessWidget {
       });
     } else {
       await ref.set({
-        'groupId': gid,
-        'title': title,
-        'members': FieldValue.arrayUnion([meUid]),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+        'type': 'group',
+        'name': title,
+        'members': [meUid],
+        'admins': [meUid],
+        'createdBy': meUid,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastMessageAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: false));
     }
 
     if (context.mounted) {
@@ -503,7 +240,11 @@ class _GroupsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userRef = FirebaseFirestore.instance.collection('users').doc(meUid);
+    final userRef = FirebaseFirestore.instance.collection('users_private').doc(meUid);
+    final groupsQuery = FirebaseFirestore.instance
+        .collection('groups')
+        .where('members', arrayContains: meUid)
+        .orderBy('lastMessageAt', descending: true);
 
     return StreamBuilder<DocumentSnapshot>(
       stream: userRef.snapshots(),
@@ -514,32 +255,102 @@ class _GroupsList extends StatelessWidget {
           fav.addAll(List<String>.from(data['favGroups'] ?? const <String>[]));
         }
 
-        final items = [...prodotti]..sort((a, b) => a.compareTo(b));
-        final mapped = items.map((p) {
-          final gid = _gidFor(p);
-          return (gid: gid, title: p, isFav: fav.contains(gid));
-        }).toList()
-          ..sort((a, b) {
-            if (a.isFav != b.isFav) return a.isFav ? -1 : 1;
-            return a.title.compareTo(b.title);
-          });
+        return StreamBuilder<QuerySnapshot>(
+          stream: groupsQuery.snapshots(),
+          builder: (context, groupSnap) {
+            if (groupSnap.hasError) {
+              return Center(child: Text('Errore: ${groupSnap.error}'));
+            }
+            if (!groupSnap.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final groups = groupSnap.data!.docs;
+            if (groups.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Non sei ancora in nessun gruppo.'),
+                      const SizedBox(height: 12),
+                      FilledButton(
+                        onPressed: () => _showGroupPicker(context),
+                        child: const Text('Entra in un gruppo'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
 
-        return ListView.separated(
-          itemCount: mapped.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
-          itemBuilder: (_, i) {
-            final it = mapped[i];
-            return ListTile(
-              leading: const CircleAvatar(child: Icon(Icons.groups)),
-              title: Text(it.title),
-              trailing: IconButton(
-                tooltip: it.isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti',
-                icon: Icon(it.isFav ? Icons.star : Icons.star_border),
-                onPressed: () => _toggleFav(it.gid, !it.isFav),
-              ),
-              onTap: () => _enterGroup(context, it.gid, it.title),
+            return ListView.separated(
+              itemCount: groups.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (_, i) {
+                final doc = groups[i];
+                final data = doc.data() as Map<String, dynamic>;
+                final gid = doc.id;
+                final title = (data['name'] ?? gid) as String;
+                final lastText = (data['lastMessageText'] ?? '') as String;
+                final lastType = (data['lastMessageType'] ?? '') as String;
+                final summary = lastText.isNotEmpty
+                    ? lastText
+                    : lastType == 'image'
+                        ? '[Foto]'
+                        : lastType == 'video'
+                            ? '[Video]'
+                            : '';
+                return ListTile(
+                  leading: const CircleAvatar(child: Icon(Icons.groups)),
+                  title: Text(title),
+                  subtitle: summary.isNotEmpty ? Text(summary) : null,
+                  trailing: IconButton(
+                    tooltip: fav.contains(gid) ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti',
+                    icon: Icon(fav.contains(gid) ? Icons.star : Icons.star_border),
+                    onPressed: () => _toggleFav(gid, !fav.contains(gid)),
+                  ),
+                  onTap: () => _enterGroup(context, gid, title),
+                );
+              },
             );
           },
+        );
+      },
+    );
+  }
+
+  Future<void> _showGroupPicker(BuildContext context) async {
+    await showDialog(
+      context: context,
+      builder: (_) {
+        final items = [...prodotti]..sort((a, b) => a.compareTo(b));
+        return AlertDialog(
+          title: const Text('Seleziona un gruppo'),
+          content: SizedBox(
+            width: 420,
+            height: 320,
+            child: ListView.separated(
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (_, i) {
+                final title = items[i];
+                final gid = _gidFor(title);
+                return ListTile(
+                  title: Text(title),
+                  onTap: () async {
+                    await _enterGroup(context, gid, title);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Chiudi')),
+          ],
         );
       },
     );
