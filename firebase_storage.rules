@@ -1,8 +1,13 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+
     function isSignedIn() {
       return request.auth != null;
+    }
+
+    function isAllowedContentType() {
+      return request.resource.contentType.matches('image/.*') || request.resource.contentType.matches('video/.*');
     }
 
     function isChatMember(chatId) {
@@ -21,19 +26,21 @@ service firebase.storage {
         firestore.get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
     }
 
-    function isAllowedContentType() {
-      return request.resource.contentType.matches('image/.*') || request.resource.contentType.matches('video/.*');
-    }
-
     // Avatar / immagini profilo pubbliche
     match /public_profiles/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn()
+        && request.auth.uid == userId
+        && isAllowedContentType()
+        && request.resource.size < 10 * 1024 * 1024; // 10 MB
     }
 
-    // Profili privati
+    // Profili privati (file)
     match /users/{userId}/profile/{allPaths=**} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read, write: if isSignedIn()
+        && request.auth.uid == userId
+        && isAllowedContentType()
+        && request.resource.size < 10 * 1024 * 1024;
     }
 
     // Media chat uno-a-uno
