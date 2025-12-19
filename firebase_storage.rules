@@ -1,8 +1,19 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+
     function isSignedIn() {
       return request.auth != null;
+    }
+
+    function isAllowedContentType() {
+      return request.resource.contentType == null
+        || request.resource.contentType.matches('image/.*')
+        || request.resource.contentType.matches('video/.*');
+    }
+
+    function isAllowedSize(maxSize) {
+      return request.resource.size == null || request.resource.size < maxSize;
     }
 
     function isChatMember(chatId) {
@@ -21,19 +32,21 @@ service firebase.storage {
         firestore.get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
     }
 
-    function isAllowedContentType() {
-      return request.resource.contentType.matches('image/.*') || request.resource.contentType.matches('video/.*');
-    }
-
     // Avatar / immagini profilo pubbliche
     match /public_profiles/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn()
+        && request.auth.uid == userId
+        && isAllowedContentType()
+        && isAllowedSize(10 * 1024 * 1024); // 10 MB
     }
 
-    // Profili privati
+    // Profili privati (file)
     match /users/{userId}/profile/{allPaths=**} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read, write: if isSignedIn()
+        && request.auth.uid == userId
+        && isAllowedContentType()
+        && isAllowedSize(10 * 1024 * 1024);
     }
 
     // Media chat uno-a-uno
@@ -41,7 +54,7 @@ service firebase.storage {
       allow read: if isChatMember(chatId);
       allow write: if isChatMember(chatId)
         && isAllowedContentType()
-        && request.resource.size < 20 * 1024 * 1024; // 20 MB
+        && isAllowedSize(20 * 1024 * 1024); // 20 MB
     }
 
     // Media chat di gruppo
@@ -49,7 +62,7 @@ service firebase.storage {
       allow read: if isGroupMember(groupId);
       allow write: if isGroupMember(groupId)
         && isAllowedContentType()
-        && request.resource.size < 20 * 1024 * 1024; // 20 MB
+        && isAllowedSize(20 * 1024 * 1024); // 20 MB
     }
 
     // Blocca tutto il resto
