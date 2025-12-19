@@ -7,13 +7,7 @@ service firebase.storage {
     }
 
     function isAllowedContentType() {
-      return request.resource.contentType == null
-        || request.resource.contentType.matches('image/.*')
-        || request.resource.contentType.matches('video/.*');
-    }
-
-    function isAllowedSize(maxSize) {
-      return request.resource.size == null || request.resource.size < maxSize;
+      return request.resource.contentType.matches('image/.*') || request.resource.contentType.matches('video/.*');
     }
 
     function isChatMember(chatId) {
@@ -38,7 +32,7 @@ service firebase.storage {
       allow write: if isSignedIn()
         && request.auth.uid == userId
         && isAllowedContentType()
-        && isAllowedSize(10 * 1024 * 1024); // 10 MB
+        && request.resource.size < 10 * 1024 * 1024; // 10 MB
     }
 
     // Profili privati (file)
@@ -46,7 +40,7 @@ service firebase.storage {
       allow read, write: if isSignedIn()
         && request.auth.uid == userId
         && isAllowedContentType()
-        && isAllowedSize(10 * 1024 * 1024);
+        && request.resource.size < 10 * 1024 * 1024;
     }
 
     // Media chat uno-a-uno
