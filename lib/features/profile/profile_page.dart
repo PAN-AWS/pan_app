@@ -522,12 +522,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ],
               const SizedBox(height: 16),
-              Center(
-                child: Text(
-                  user.email ?? '',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
               const SizedBox(height: 32),
               const Text(
                 'Modifica immagine profilo',
