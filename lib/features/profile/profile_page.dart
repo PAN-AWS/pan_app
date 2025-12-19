@@ -122,6 +122,16 @@ class _ProfilePageState extends State<ProfilePage> {
       final _StandardAvatar avatar = await _standardizeAvatar(bytes);
 
       final FirebaseStorage storage = _storageForConfiguredBucket();
+      final appOptions = Firebase.app().options;
+      debugPrint('[AVATAR] firebase projectId=${appOptions.projectId}');
+      debugPrint('[AVATAR] firebase storageBucket=${appOptions.storageBucket}');
+      SyncStatusController.instance.add(
+        title: 'Firebase runtime',
+        message:
+            'projectId=${appOptions.projectId ?? 'n/d'} bucket=${appOptions.storageBucket ?? 'n/d'}',
+        success: true,
+        category: 'storage',
+      );
 
       final ref = storage
           .ref()
@@ -175,20 +185,32 @@ class _ProfilePageState extends State<ProfilePage> {
 
       await _cleanupLegacyAvatars(storage: storage, uid: user.uid);
 
+      String url;
+      try {
+        url = await ref.getDownloadURL();
+        debugPrint('[PROFILE] got URL: $url');
+        SyncStatusController.instance.add(
+          title: 'Upload immagine',
+          message: 'URL ottenuto',
+          success: true,
+          category: 'storage',
+        );
+      } on FirebaseException catch (e) {
+        debugPrint('[PROFILE] getDownloadURL error: ${e.code} ${e.message}');
+        SyncStatusController.instance.add(
+          title: 'Upload immagine',
+          message: 'Errore URL: ${e.code} - ${e.message ?? ''}',
+          success: false,
+          category: 'storage',
+        );
+        rethrow;
+      }
+
       debugPrint('Upload avatar: COMPLETATO');
 
       SyncStatusController.instance.add(
         title: 'Upload avatar: COMPLETATO',
         message: 'Upload riuscito su ${ref.fullPath}',
-        success: true,
-        category: 'storage',
-      );
-
-      final url = await ref.getDownloadURL();
-      debugPrint('[PROFILE] got URL: $url');
-      SyncStatusController.instance.add(
-        title: 'Upload immagine',
-        message: 'URL ottenuto',
         success: true,
         category: 'storage',
       );
