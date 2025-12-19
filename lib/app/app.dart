@@ -179,7 +179,7 @@ class _Root extends StatelessWidget {
   Widget build(BuildContext context) {
     return const AuthGate(
       loading: _Splash(),
-      builder: _RootContent.new,
+      builder: (_) => const _RootContent(),
     );
   }
 }
