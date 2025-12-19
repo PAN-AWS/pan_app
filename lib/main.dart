@@ -21,12 +21,18 @@ Future<void> main() async {
   if (kIsWeb && recaptchaKey.isEmpty) {
     AppLogger.warn('App Check web key missing: FIREBASE_APPCHECK_RECAPTCHA_KEY');
   }
-  await FirebaseAppCheck.instance.activate(
-    androidProvider: AndroidProvider.playIntegrity,
-    appleProvider: AppleProvider.deviceCheck,
-    webProvider:
-        kIsWeb && recaptchaKey.isNotEmpty ? ReCaptchaV3Provider(recaptchaKey) : null,
-  );
+  if (kIsWeb) {
+    if (recaptchaKey.isNotEmpty) {
+      await FirebaseAppCheck.instance.activate(
+        webProvider: ReCaptchaV3Provider(recaptchaKey),
+      );
+    }
+  } else {
+    await FirebaseAppCheck.instance.activate(
+      androidProvider: AndroidProvider.playIntegrity,
+      appleProvider: AppleProvider.deviceCheck,
+    );
+  }
 
   final options = Firebase.app().options;
   AppLogger.info('Firebase projectId=${options.projectId ?? 'n/d'}');
