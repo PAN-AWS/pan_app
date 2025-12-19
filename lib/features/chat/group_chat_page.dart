@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -22,6 +23,14 @@ class _GroupChatPageState extends State<GroupChatPage> {
   bool _sending = false;
   final _picker = ImagePicker();
   bool _sendingMedia = false;
+
+  FirebaseStorage _storage() {
+    final bucket = Firebase.app().options.storageBucket;
+    if (bucket != null && bucket.isNotEmpty) {
+      return FirebaseStorage.instanceFor(bucket: bucket);
+    }
+    return FirebaseStorage.instance;
+  }
 
   String _summaryFor({String? text, String? mediaType}) {
     if (text != null && text.trim().isNotEmpty) return text.trim();
@@ -83,7 +92,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
       final groupRef = FirebaseFirestore.instance.collection('groups').doc(widget.groupId);
       final msgId = groupRef.collection('messages').doc().id;
       final path = 'group_media/${widget.groupId}/$msgId/${picked.name}';
-      final ref = FirebaseStorage.instance.ref(path);
+      final ref = _storage().ref(path);
       final bytes = await picked.readAsBytes();
       if (bytes.length > 20 * 1024 * 1024) {
         if (mounted) {

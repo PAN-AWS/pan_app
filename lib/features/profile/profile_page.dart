@@ -62,6 +62,9 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     }
 
+    if (bucket != null && bucket.isNotEmpty) {
+      return FirebaseStorage.instanceFor(bucket: bucket);
+    }
     return FirebaseStorage.instance;
   }
 

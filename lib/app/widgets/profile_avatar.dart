@@ -90,7 +90,9 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
     if (kDebugMode && bucket != null && bucket.isNotEmpty) {
       debugPrint('[PROFILE-AVATAR] runtime bucket=$bucket');
     }
-    final storage = FirebaseStorage.instance;
+    final storage = (bucket != null && bucket.isNotEmpty)
+        ? FirebaseStorage.instanceFor(bucket: bucket)
+        : FirebaseStorage.instance;
     try {
       final ref = storage
           .ref()
