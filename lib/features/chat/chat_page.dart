@@ -205,7 +205,7 @@ class _GroupsList extends StatelessWidget {
   ];
 
   String _gidFor(String name) =>
-      'prod_${name.toLowerCase().replaceAll(RegExp(r"[^a-z0-9]+"), "_")}';
+      'prod_${name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_')}';
 
   Future<void> _toggleFav(String gid, bool add) async {
     final ref = FirebaseFirestore.instance.collection('users_private').doc(meUid);
