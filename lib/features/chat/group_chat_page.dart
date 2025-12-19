@@ -1,11 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../marketplace/public_profile_page.dart';
+import '../../app/widgets/app_nav_bar.dart';
 
 class GroupChatPage extends StatefulWidget {
   final String groupId;
@@ -21,6 +23,14 @@ class _GroupChatPageState extends State<GroupChatPage> {
   bool _sending = false;
   final _picker = ImagePicker();
   bool _sendingMedia = false;
+
+  FirebaseStorage _storage() {
+    final bucket = Firebase.app().options.storageBucket;
+    if (bucket != null && bucket.isNotEmpty) {
+      return FirebaseStorage.instanceFor(bucket: bucket);
+    }
+    return FirebaseStorage.instance;
+  }
 
   String _summaryFor({String? text, String? mediaType}) {
     if (text != null && text.trim().isNotEmpty) return text.trim();
@@ -82,8 +92,16 @@ class _GroupChatPageState extends State<GroupChatPage> {
       final groupRef = FirebaseFirestore.instance.collection('groups').doc(widget.groupId);
       final msgId = groupRef.collection('messages').doc().id;
       final path = 'group_media/${widget.groupId}/$msgId/${picked.name}';
-      final ref = FirebaseStorage.instance.ref(path);
+      final ref = _storage().ref(path);
       final bytes = await picked.readAsBytes();
+      if (bytes.length > 20 * 1024 * 1024) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('File troppo grande (max 20 MB).')),
+          );
+        }
+        return;
+      }
       final inferredType = _inferContentType(picked.name, isVideo: isVideo);
       final metadata = SettableMetadata(contentType: inferredType);
 
@@ -115,7 +133,13 @@ class _GroupChatPageState extends State<GroupChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final me = FirebaseAuth.instance.currentUser!;
+    final me = FirebaseAuth.instance.currentUser;
+    if (me == null) {
+      return const Scaffold(
+        body: Center(child: Text('Accedi per usare la chat di gruppo.')),
+        bottomNavigationBar: AppNavBar(currentIndex: 1),
+      );
+    }
     final q = FirebaseFirestore.instance
         .collection('groups')
         .doc(widget.groupId)
@@ -254,6 +278,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
           ),
         ],
       ),
+      bottomNavigationBar: const AppNavBar(currentIndex: 1),
     );
   }
 }
