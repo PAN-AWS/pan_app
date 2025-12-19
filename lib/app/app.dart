@@ -177,8 +177,8 @@ class _Root extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const AuthGate(
-      loading: _Splash(),
+    return AuthGate(
+      loading: const _Splash(),
       builder: (_) => const _RootContent(),
     );
   }
